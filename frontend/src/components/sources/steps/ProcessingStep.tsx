@@ -2,6 +2,7 @@
 
 import { Control, Controller } from "react-hook-form"
 import { useTranslation } from "@/lib/hooks/use-translation"
+import { resolveTransformationFields } from '@/lib/utils/transformation-localization'
 import { FormSection } from "@/components/ui/form-section"
 import { CheckboxList } from "@/components/ui/checkbox-list"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -37,12 +38,15 @@ export function ProcessingStep({
   loading = false,
   settings
 }: ProcessingStepProps) {
-  const { t } = useTranslation()
-  const transformationItems = transformations.map((transformation) => ({
-    id: transformation.id,
-    title: transformation.title,
-    description: transformation.description
-  }))
+  const { t, language } = useTranslation()
+  const transformationItems = transformations.map((transformation) => {
+    const localized = resolveTransformationFields(transformation, language)
+    return {
+      id: transformation.id,
+      title: localized.title || localized.name,
+      description: localized.description,
+    }
+  })
 
   return (
     <div className="space-y-8">

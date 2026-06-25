@@ -1,15 +1,33 @@
-import { zhCN, enUS, zhTW, ptBR, ja, fr, ru, bn, ca, es, de, pl, tr, Locale } from 'date-fns/locale'
+import { arSA, bn, ca, cs, da, de, el, enUS, es, faIR, fi, fr, he, hi, hu, id, it, ja, ko, Locale, ms, nb, nl, pl, ptBR, ro, ru, sv, th, tr, uk, vi, zhCN, zhTW } from 'date-fns/locale'
 
-/**
- * Mapping of language codes to date-fns locales.
- * Add new languages here as needed.
- */
+import { normalizeLanguageCode } from '@/lib/locales'
+
 const LOCALE_MAP: Record<string, Locale> = {
   'zh-CN': zhCN,
+  'zh-SG': zhCN,
   'zh-TW': zhTW,
   'en-US': enUS,
+  'en-SG': enUS,
   'pt-BR': ptBR,
   'ja-JP': ja,
+  'ko-KR': ko,
+  'hi-IN': hi,
+  'id-ID': id,
+  'th-TH': th,
+  'ar-SA': arSA,
+  'fa-IR': faIR,
+  'he-IL': he,
+  'ms-MY': ms,
+  'nl-NL': nl,
+  'sv-SE': sv,
+  'nb-NO': nb,
+  'da-DK': da,
+  'fi-FI': fi,
+  'el-GR': el,
+  'cs-CZ': cs,
+  'hu-HU': hu,
+  'ro-RO': ro,
+  'uk-UA': uk,
   'fr-FR': fr,
   'ru-RU': ru,
   'bn-IN': bn,
@@ -18,15 +36,10 @@ const LOCALE_MAP: Record<string, Locale> = {
   'de-DE': de,
   'pl-PL': pl,
   'tr-TR': tr,
+  'vi-VN': vi,
+  'it-IT': it,
 }
 
-/**
- * Get the date-fns locale for a given language code.
- * Falls back to English (en-US) if the language is not found.
- * 
- * @param language - The language code (e.g., 'zh-CN', 'en-US')
- * @returns The corresponding date-fns Locale object
- */
 export function getDateLocale(language: string): Locale {
-  return LOCALE_MAP[language] || enUS
+  return LOCALE_MAP[normalizeLanguageCode(language)] || enUS
 }

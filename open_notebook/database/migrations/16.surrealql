@@ -1,0 +1,34 @@
+-- Migration 16: Add localization fields to transformation table
+-- Enables per-locale name/title/description/prompt for both built-in system
+-- transformations and user-defined custom transformations.
+
+DEFINE FIELD IF NOT EXISTS source_locale ON TABLE transformation TYPE string DEFAULT "en-US";
+DEFINE FIELD IF NOT EXISTS system_key ON TABLE transformation TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS translations ON TABLE transformation FLEXIBLE TYPE option<object> DEFAULT {};
+
+DEFINE INDEX IF NOT EXISTS idx_transformation_system_key ON transformation FIELDS system_key;
+
+-- Backfill system_key for the seeded built-in transformations so the runtime
+-- locale resolver can pick up the multi-language metadata from
+-- open_notebook.domain.transformation_defaults.
+
+UPDATE transformation SET system_key = "analyze_paper"
+    WHERE system_key IS NONE AND name = "Analyze Paper";
+
+UPDATE transformation SET system_key = "key_insights"
+    WHERE system_key IS NONE AND name = "Key Insights";
+
+UPDATE transformation SET system_key = "dense_summary"
+    WHERE system_key IS NONE AND name = "Dense Summary";
+
+UPDATE transformation SET system_key = "reflections"
+    WHERE system_key IS NONE AND name = "Reflections";
+
+UPDATE transformation SET system_key = "table_of_contents"
+    WHERE system_key IS NONE AND name = "Table of Contents";
+
+UPDATE transformation SET system_key = "simple_summary"
+    WHERE system_key IS NONE AND name = "Simple Summary";
+
+UPDATE transformation SET source_locale = "en-US" WHERE source_locale IS NONE OR source_locale = "";
+UPDATE transformation SET translations = {} WHERE translations IS NONE;

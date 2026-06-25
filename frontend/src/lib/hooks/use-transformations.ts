@@ -1,15 +1,16 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { transformationsApi } from '@/lib/api/transformations'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { getApiErrorMessage } from '@/lib/utils/error-handler'
 import {
   CreateTransformationRequest,
+  DefaultPrompt,
+  ExecuteTransformationRequest,
   UpdateTransformationRequest,
-  ExecuteTransformationRequest
 } from '@/lib/types/transformations'
+import { getApiErrorMessage } from '@/lib/utils/error-handler'
 
-// Add to QUERY_KEYS in query-client.ts
 export const TRANSFORMATION_QUERY_KEYS = {
   transformations: ['transformations'] as const,
   transformation: (id: string) => ['transformations', id] as const,
@@ -135,7 +136,7 @@ export function useUpdateDefaultPrompt() {
   const { t } = useTranslation()
 
   return useMutation({
-    mutationFn: (prompt: { transformation_instructions: string }) => transformationsApi.updateDefaultPrompt(prompt),
+    mutationFn: (prompt: DefaultPrompt) => transformationsApi.updateDefaultPrompt(prompt),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRANSFORMATION_QUERY_KEYS.defaultPrompt })
       toast({

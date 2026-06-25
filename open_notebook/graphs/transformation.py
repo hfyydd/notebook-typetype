@@ -13,27 +13,38 @@ from open_notebook.utils.error_classifier import classify_error
 from open_notebook.utils.text_utils import extract_text_content
 
 
-class TransformationState(TypedDict):
+class TransformationState(TypedDict, total=False):
     input_text: str
     source: Source
     transformation: Transformation
+    locale: str
     output: str
 
 
 async def run_transformation(state: dict, config: RunnableConfig) -> dict:
     source_obj = state.get("source")
-    source: Source = source_obj if isinstance(source_obj, Source) else None  # type: ignore[assignment]
+    source: Source | None = source_obj if isinstance(source_obj, Source) else None
     content = state.get("input_text")
     assert source or content, "No content to transform"
     transformation: Transformation = state["transformation"]
+    locale = (
+        state.get("locale")
+        or config.get("configurable", {}).get("locale")
+        or "en-US"
+    )
 
     try:
-        if not content:
+        if not content and source:
             content = source.full_text
-        transformation_template_text = transformation.prompt
-        default_prompts: DefaultPrompts = DefaultPrompts(transformation_instructions=None)
-        if default_prompts.transformation_instructions:
-            transformation_template_text = f"{default_prompts.transformation_instructions}\n\n{transformation_template_text}"
+
+        localized_fields = transformation.resolve_localized_fields(locale)
+        transformation_template_text = localized_fields["prompt"]
+        default_prompts: DefaultPrompts = await DefaultPrompts.get_instance()  # type: ignore[assignment]
+        default_prompt_text = default_prompts.resolve_transformation_instructions(locale)
+        if default_prompt_text:
+            transformation_template_text = (
+                f"{default_prompt_text}\n\n{transformation_template_text}"
+            )
 
         transformation_template_text = f"{transformation_template_text}\n\n# INPUT"
 
@@ -51,12 +62,11 @@ async def run_transformation(state: dict, config: RunnableConfig) -> dict:
 
         response = await chain.ainvoke(payload)
 
-        # Clean thinking content from the response
         response_content = extract_text_content(response.content)
         cleaned_content = clean_thinking_content(response_content)
 
         if source:
-            await source.add_insight(transformation.title, cleaned_content)
+            await source.add_insight(localized_fields["title"], cleaned_content)
 
         return {
             "output": cleaned_content,

@@ -24,6 +24,7 @@ import { useCreateSource } from '@/lib/hooks/use-sources'
 import { useSettings } from '@/lib/hooks/use-settings'
 import { CreateSourceRequest } from '@/lib/types/api'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { normalizeLanguageCode } from '@/lib/locales'
 
 const MAX_BATCH_SIZE = 50
 
@@ -90,7 +91,8 @@ export function AddSourceDialog({
   onOpenChange, 
   defaultNotebookId 
 }: AddSourceDialogProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const activeLocale = normalizeLanguageCode(language)
 
   const WIZARD_STEPS: readonly WizardStep[] = [
     { number: 1, title: t('sources.addSource'), description: t('sources.processDescription') },
@@ -305,6 +307,7 @@ export function AddSourceDialog({
       content: data.type === 'text' ? data.content : undefined,
       title: data.title,
       transformations: selectedTransformations,
+      locale: activeLocale,
       embed: data.embed,
       delete_source: false,
       async_processing: true,
@@ -355,6 +358,7 @@ export function AddSourceDialog({
           notebooks: selectedNotebooks,
           url: item.type === 'url' ? item.value as string : undefined,
           transformations: selectedTransformations,
+          locale: activeLocale,
           embed: data.embed,
           delete_source: false,
           async_processing: true,

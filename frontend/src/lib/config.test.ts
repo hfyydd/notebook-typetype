@@ -11,7 +11,7 @@ describe('Config Priority', () => {
     resetConfig()
     process.env = { ...originalEnv }
     fetchMock.mockReset()
-    global.fetch = fetchMock
+    global.fetch = fetchMock as unknown as typeof fetch
   })
 
   afterEach(() => {

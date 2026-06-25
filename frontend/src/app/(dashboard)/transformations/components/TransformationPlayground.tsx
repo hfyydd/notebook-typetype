@@ -23,7 +23,7 @@ interface TransformationPlaygroundProps {
 }
 
 export function TransformationPlayground({ transformations, selectedTransformation }: TransformationPlaygroundProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [selectedId, setSelectedId] = useState(selectedTransformation?.id || '')
   const [inputText, setInputText] = useState('')
   const [modelId, setModelId] = useState('')
@@ -39,7 +39,8 @@ export function TransformationPlayground({ transformations, selectedTransformati
     const result = await executeTransformation.mutateAsync({
       transformation_id: selectedId,
       input_text: inputText,
-      model_id: modelId
+      model_id: modelId,
+      locale: language || 'en-US',
     })
 
     setOutput(result.output)
