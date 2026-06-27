@@ -20,20 +20,23 @@ default_tier: free
 
 tiers:
   # ---------------------------------------------------------------------------
-  # free: lowest cost, good enough for most tasks. Alibaba Qwen via DashScope.
+  # free: lowest cost. Mixing providers is fine — chat from MiniMax, embeddings
+  # from SiliconFlow's free tier. This is the recommended Chinese setup.
   # ---------------------------------------------------------------------------
   free:
     language:
-      provider: dashscope
-      model: qwen-plus
-      api_key: ${DASHSCOPE_API_KEY}
+      provider: openai_compatible
+      model: MiniMax-M3
+      api_key: ${MINIMAX_API_KEY}
+      base_url: https://api.minimaxi.com/v1
     embedding:
-      provider: dashscope
-      model: text-embedding-v3
-      api_key: ${DASHSCOPE_API_KEY}
+      provider: openai_compatible
+      model: BAAI/bge-m3
+      api_key: ${SILICONFLOW_API_KEY}
+      base_url: https://api.siliconflow.cn/v1
 
   # ---------------------------------------------------------------------------
-  # standard: balanced quality & cost. Zhipu GLM-4.
+  # standard: balanced quality & cost. Alibaba Qwen via DashScope.
   # ---------------------------------------------------------------------------
   standard:
     language:
