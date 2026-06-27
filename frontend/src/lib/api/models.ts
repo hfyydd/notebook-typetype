@@ -10,6 +10,7 @@ import {
   ProviderModelCount,
   AutoAssignResult,
   ModelTestResult,
+  ManagedMode,
 } from '@/lib/types/models'
 
 export const modelsApi = {
@@ -101,6 +102,26 @@ export const modelsApi = {
    */
   testModel: async (modelId: string): Promise<ModelTestResult> => {
     const response = await apiClient.post<ModelTestResult>(`/models/${modelId}/test`)
+    return response.data
+  },
+
+  // --- Cloud-service / managed mode (config/models.yaml) ---
+
+  /**
+   * Whether the backend is running in managed model mode.
+   * When enabled, models are configured via config/models.yaml and users
+   * should not be shown the per-user model configuration UI.
+   */
+  getManagedMode: async (): Promise<ManagedMode> => {
+    const response = await apiClient.get<ManagedMode>('/models/managed')
+    return response.data
+  },
+
+  /**
+   * Hot-reload config/models.yaml (operator-only).
+   */
+  reloadConfig: async (): Promise<ManagedMode> => {
+    const response = await apiClient.post<ManagedMode>('/models/reload')
     return response.data
   },
 }

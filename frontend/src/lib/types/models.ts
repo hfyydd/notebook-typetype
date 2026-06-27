@@ -69,3 +69,10 @@ export interface ModelTestResult {
   message: string
   details?: string
 }
+
+// Cloud-service / managed model mode (config/models.yaml)
+export interface ManagedMode {
+  enabled: boolean
+  default_tier: string | null
+  tiers: string[]
+}

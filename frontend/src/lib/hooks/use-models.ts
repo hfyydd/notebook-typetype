@@ -197,3 +197,13 @@ export function useTestModel() {
     clearResult,
   }
 }
+
+// --- Cloud-service / managed mode ---
+
+export function useManagedMode() {
+  return useQuery({
+    queryKey: ['models', 'managed'],
+    queryFn: () => modelsApi.getManagedMode(),
+    staleTime: 5 * 60 * 1000, // config rarely changes
+  })
+}
