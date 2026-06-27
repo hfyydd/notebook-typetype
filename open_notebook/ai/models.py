@@ -9,6 +9,7 @@ from esperanto import (
 )
 from loguru import logger
 
+from open_notebook.ai.model_config import ModelConfig, ModelConfigProvider
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel, RecordModel
 from open_notebook.exceptions import ConfigurationError
@@ -98,6 +99,53 @@ class DefaultModels(RecordModel):
 class ModelManager:
     def __init__(self):
         pass  # No caching needed
+
+    # ------------------------------------------------------------------ #
+    # YAML (cloud-service / managed) mode
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _yaml_provider() -> ModelConfigProvider:
+        return ModelConfigProvider.get_instance()
+
+    @staticmethod
+    def _build_from_yaml_config(
+        config: ModelConfig, model_type: str, **kwargs
+    ) -> ModelType:
+        """
+        Construct an Esperanto model instance directly from a YAML ModelConfig.
+
+        Mirrors what get_model() does for DB-backed models: gather a config
+        dict and hand it to AIFactory. Esperanto caches the instance by
+        provider+model+config, so repeated calls are cheap.
+        """
+        esperanto_config = config.to_esperanto_config()
+        esperanto_config.update(kwargs)
+        provider = config.provider.replace("_", "-")
+
+        logger.debug(
+            f"Using model from YAML config: provider={config.provider}, "
+            f"model={config.model}, type={model_type}"
+        )
+
+        if model_type in ("language", "chat", "tools", "transformation"):
+            return AIFactory.create_language(
+                model_name=config.model, provider=provider, config=esperanto_config
+            )
+        elif model_type == "embedding":
+            return AIFactory.create_embedding(
+                model_name=config.model, provider=provider, config=esperanto_config
+            )
+        elif model_type == "speech_to_text":
+            return AIFactory.create_speech_to_text(
+                model_name=config.model, provider=provider, config=esperanto_config
+            )
+        elif model_type == "text_to_speech":
+            return AIFactory.create_text_to_speech(
+                model_name=config.model, provider=provider, config=esperanto_config
+            )
+        else:
+            raise ConfigurationError(f"Invalid model type: {model_type}")
 
     async def get_model(self, model_id: str, **kwargs) -> Optional[ModelType]:
         """Get a model by ID. Esperanto will cache the actual model instance."""
@@ -222,10 +270,26 @@ class ModelManager:
         """
         Get the default model for a specific type.
 
+        In managed (cloud-service) mode, the model is resolved from
+        config/models.yaml via ModelConfigProvider. Otherwise it falls back to
+        the original database-backed DefaultModels singleton.
+
         Args:
             model_type: The type of model to retrieve (e.g., 'chat', 'embedding', etc.)
             **kwargs: Additional arguments to pass to the model constructor
         """
+        # --- Managed (YAML) mode takes priority when configured. ---
+        provider = self._yaml_provider()
+        if provider.is_available():
+            yaml_config = provider.get_model_config(model_type)
+            if yaml_config is not None:
+                return self._build_from_yaml_config(yaml_config, model_type, **kwargs)
+            logger.warning(
+                f"No YAML model config for purpose '{model_type}'; "
+                f"falling back to database defaults."
+            )
+
+        # --- Legacy: database-backed default models. ---
         defaults = await self.get_defaults()
         model_id = None
 
