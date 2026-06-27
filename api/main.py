@@ -145,6 +145,28 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Podcast profile migration encountered errors: {e}")
         # Non-fatal: profiles can be migrated manually via UI
 
+    # Preload managed (cloud-service) model config from config/models.yaml.
+    # When present, the app runs in managed mode: models are configured by the
+    # operator and end users never touch model settings. Absence is fine — the
+    # app falls back to the original database-based configuration.
+    try:
+        from open_notebook.ai.model_config import ModelConfigProvider
+
+        provider = ModelConfigProvider.get_instance()
+        if provider.is_available():
+            logger.success(
+                f"Managed model mode enabled: tiers={provider.list_tiers()}, "
+                f"default='{provider.get_default_tier()}'. "
+                f"Users will not see model configuration UI."
+            )
+        else:
+            logger.info(
+                "Managed model mode disabled (no config/models.yaml). "
+                "Using database-based model configuration."
+            )
+    except Exception as e:
+        logger.warning(f"Could not load managed model config: {e}")
+
     logger.success("API initialization completed successfully")
 
     # Yield control to the application
