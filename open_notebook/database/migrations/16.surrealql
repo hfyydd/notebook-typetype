@@ -11,24 +11,20 @@ DEFINE INDEX IF NOT EXISTS idx_transformation_system_key ON transformation FIELD
 -- Backfill system_key for the seeded built-in transformations so the runtime
 -- locale resolver can pick up the multi-language metadata from
 -- open_notebook.domain.transformation_defaults.
+--
+-- NOTE: We intentionally do NOT guard with "system_key IS NONE". When DEFINE
+-- FIELD (above) adds the column in the same migration batch, SurrealDB does
+-- not consistently materialize the NONE default onto pre-existing rows before
+-- the UPDATE runs, so the IS NONE predicate matches nothing. Matching on name
+-- alone is safe because these are the exact seeded names and system_key is
+-- meant to be set exactly once. Idempotent on re-run.
 
-UPDATE transformation SET system_key = "analyze_paper"
-    WHERE system_key IS NONE AND name = "Analyze Paper";
-
-UPDATE transformation SET system_key = "key_insights"
-    WHERE system_key IS NONE AND name = "Key Insights";
-
-UPDATE transformation SET system_key = "dense_summary"
-    WHERE system_key IS NONE AND name = "Dense Summary";
-
-UPDATE transformation SET system_key = "reflections"
-    WHERE system_key IS NONE AND name = "Reflections";
-
-UPDATE transformation SET system_key = "table_of_contents"
-    WHERE system_key IS NONE AND name = "Table of Contents";
-
-UPDATE transformation SET system_key = "simple_summary"
-    WHERE system_key IS NONE AND name = "Simple Summary";
+UPDATE transformation SET system_key = "analyze_paper"    WHERE name = "Analyze Paper";
+UPDATE transformation SET system_key = "key_insights"     WHERE name = "Key Insights";
+UPDATE transformation SET system_key = "dense_summary"    WHERE name = "Dense Summary";
+UPDATE transformation SET system_key = "reflections"      WHERE name = "Reflections";
+UPDATE transformation SET system_key = "table_of_contents" WHERE name = "Table of Contents";
+UPDATE transformation SET system_key = "simple_summary"   WHERE name = "Simple Summary";
 
 UPDATE transformation SET source_locale = "en-US" WHERE source_locale IS NONE OR source_locale = "";
 UPDATE transformation SET translations = {} WHERE translations IS NONE;
