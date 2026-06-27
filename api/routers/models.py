@@ -778,3 +778,64 @@ async def auto_assign_defaults():
         raise HTTPException(
             status_code=500, detail=f"Error auto-assigning defaults: {str(e)}"
         )
+
+
+# =============================================================================
+# Cloud-service / managed model configuration (config/models.yaml)
+# =============================================================================
+# These endpoints expose the YAML-based tier configuration so the frontend can
+# discover available tiers and so operators can hot-reload config without a
+# restart. They return no secrets. When no yaml is present, they report the
+# managed mode as disabled and the original DB-based endpoints remain in use.
+
+
+class ManagedModeResponse(BaseModel):
+    enabled: bool
+    default_tier: Optional[str] = None
+    tiers: List[str] = []
+
+
+@router.get("/models/managed", response_model=ManagedModeResponse)
+async def get_managed_mode():
+    """Report whether the app is running in managed (YAML) model mode."""
+    from open_notebook.ai.model_config import ModelConfigProvider
+
+    provider = ModelConfigProvider.get_instance()
+    return ManagedModeResponse(
+        enabled=provider.is_available(),
+        default_tier=provider.get_default_tier(),
+        tiers=provider.list_tiers(),
+    )
+
+
+@router.post("/models/reload")
+async def reload_model_config():
+    """Hot-reload config/models.yaml. Intended for operators after editing."""
+    from open_notebook.ai.model_config import ModelConfigProvider
+
+    try:
+        provider = ModelConfigProvider.get_instance()
+        provider.load()
+        return {
+            "enabled": provider.is_available(),
+            "default_tier": provider.get_default_tier(),
+            "tiers": provider.list_tiers(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to reload model config: {e}")
+        raise HTTPException(status_code=500, detail=f"Reload failed: {e}")
+
+
+@router.get("/models/health")
+async def models_health_check():
+    """
+    Per-tier, per-purpose configuration status.
+
+    Lets operators verify that every tier has its required purposes configured
+    and that referenced environment variables resolved to API keys. No secrets
+    are returned — only `has_api_key: bool`.
+    """
+    from open_notebook.ai.model_config import ModelConfigProvider
+
+    provider = ModelConfigProvider.get_instance()
+    return provider.health_check()
