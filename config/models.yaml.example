@@ -1,27 +1,24 @@
 # =============================================================================
-# Model configuration for cloud-service mode
+# 全国产模型配置（模板）
 # =============================================================================
-# Copy this file to config/models.yaml and fill in real values.
-# config/models.yaml is git-ignored — never commit real API keys.
+# 复制本文件为 config/models.yaml，填入真实模型配置。
+# config/models.yaml 已被 gitignore，不会提交到 GitHub。
 #
-# When this file is present and valid, the app runs in "managed mode":
-#   - End users never configure models (Settings → Models page is hidden).
-#   - All model selection happens here, per tier.
-#   - API keys are referenced via ${ENV_VAR} so they stay in your .env / env.
+# 当本文件存在且有效时，应用运行在「托管模式」:
+#   - 用户无需在前端配置任何 API Key 或模型
+#   - 所有模型选择在此文件中按档位定义
+#   - API Key 通过 ${ENV_VAR} 引用 .env（Key 不写进 yaml）
 #
-# When this file is ABSENT, the app falls back to the original per-user
-# database configuration (legacy mode), so existing deployments keep working.
+# 当本文件缺失时，应用回退到原版「数据库模式」(legacy)，用户在前端自配。
 #
-# After editing, either restart the app or call:  POST /api/models/reload
-# =============================================================================
+# 修改后重启服务，或调用: POST /api/models/reload 热重载。
 
-# The tier used when no tier is specified (e.g. anonymous / free users).
-default_tier: free
+default_tier: standard
 
 tiers:
   # ---------------------------------------------------------------------------
-  # free: lowest cost. Mixing providers is fine — chat from MiniMax, embeddings
-  # from SiliconFlow's free tier. This is the recommended Chinese setup.
+  # free: 入门档。MiniMax 对话 + 硅基流动 bge-m3 向量化。
+  # 两者都有免费额度，零成本起步。
   # ---------------------------------------------------------------------------
   free:
     language:
@@ -34,64 +31,80 @@ tiers:
       model: BAAI/bge-m3
       api_key: ${SILICONFLOW_API_KEY}
       base_url: https://api.siliconflow.cn/v1
+    speech_to_text:                  # 硅基流动 SenseVoice，免费
+      provider: openai_compatible
+      model: FunAudioLLM/SenseVoiceSmall
+      api_key: ${SILICONFLOW_API_KEY}
+      base_url: https://api.siliconflow.cn/v1
 
   # ---------------------------------------------------------------------------
-  # standard: balanced quality & cost. Alibaba Qwen via DashScope.
+  # standard: 平衡档。通义千问 + 硅基流动 bge-m3。
   # ---------------------------------------------------------------------------
   standard:
     language:
       provider: openai_compatible
-      model: glm-4-plus
-      api_key: ${ZHIPU_API_KEY}
-      base_url: https://open.bigmodel.cn/api/paas/v4
+      model: qwen-plus
+      api_key: ${DASHSCOPE_API_KEY}
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     embedding:
       provider: openai_compatible
-      model: embedding-3
-      api_key: ${ZHIPU_API_KEY}
-      base_url: https://open.bigmodel.cn/api/paas/v4
-    text_to_speech:
-      provider: minimax
-      model: speech-01-hd
-      api_key: ${MINIMAX_API_KEY}
+      model: BAAI/bge-m3
+      api_key: ${SILICONFLOW_API_KEY}
+      base_url: https://api.siliconflow.cn/v1
+    speech_to_text:
+      provider: openai_compatible
+      model: FunAudioLLM/SenseVoiceSmall
+      api_key: ${SILICONFLOW_API_KEY}
+      base_url: https://api.siliconflow.cn/v1
 
   # ---------------------------------------------------------------------------
-  # premium: best quality. OpenAI + Gemini for long context.
+  # premium: 旗舰档。通义千问 Max + 长文本 + bge-m3。
   # ---------------------------------------------------------------------------
   premium:
     language:
-      provider: openai
-      model: gpt-4o
-      api_key: ${OPENAI_API_KEY}
-    large_context:                 # used when content > 105k tokens
-      provider: google
-      model: gemini-1.5-pro
-      api_key: ${GOOGLE_API_KEY}
+      provider: openai_compatible
+      model: qwen-max
+      api_key: ${DASHSCOPE_API_KEY}
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    large_context:                   # 长文本（>105k token）专用
+      provider: openai_compatible
+      model: qwen-long
+      api_key: ${DASHSCOPE_API_KEY}
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     embedding:
-      provider: openai
-      model: text-embedding-3-large
-      api_key: ${OPENAI_API_KEY}
-    text_to_speech:
-      provider: openai
-      model: tts-1
-      api_key: ${OPENAI_API_KEY}
+      provider: openai_compatible
+      model: BAAI/bge-m3
+      api_key: ${SILICONFLOW_API_KEY}
+      base_url: https://api.siliconflow.cn/v1
     speech_to_text:
-      provider: openai
-      model: whisper-1
-      api_key: ${OPENAI_API_KEY}
+      provider: openai_compatible
+      model: FunAudioLLM/SenseVoiceSmall
+      api_key: ${SILICONFLOW_API_KEY}
+      base_url: https://api.siliconflow.cn/v1
 
 # =============================================================================
-# Supported purposes (per tier):
-#   language          — chat / ask / transformations (required)
-#   embedding         — vector search (required)
-#   text_to_speech    — podcast generation (optional)
-#   speech_to_text    — audio transcription (optional)
-#   large_context     — used when content > 105k tokens (optional)
-#
-# Chat / tools / transformation requests all map onto 'language'.
-# A missing purpose in a tier falls back to the default_tier.
-#
-# Provider names must match what Esperanto's AIFactory accepts:
-#   openai, anthropic, google, groq, mistral, deepseek, xai, openrouter,
-#   voyage, elevenlabs, deepgram, dashscope, minimax, ollama, azure, vertex,
-#   openai_compatible
+# 国产模型提供商对接方式速查（均为 OpenAI 兼容格式）
 # =============================================================================
+# | 提供商     | base_url                                          | 模型示例          |
+# |------------|---------------------------------------------------|-------------------|
+# | 硅基流动   | https://api.siliconflow.cn/v1                     | BAAI/bge-m3 (emb) |
+# |            |                                                   | Qwen/DeepSeek/GLM |
+# |            |                                                   | SenseVoice (stt)  |
+# | 通义千问   | https://dashscope.aliyuncs.com/compatible-mode/v1 | qwen-plus/max     |
+# | MiniMax    | https://api.minimaxi.com/v1                       | MiniMax-M3        |
+# | 智谱 GLM   | https://open.bigmodel.cn/api/paas/v4              | glm-4-plus        |
+# | DeepSeek   | https://api.deepseek.com/v1                       | deepseek-chat/R1  |
+# | 月之暗面   | https://api.moonshot.cn/v1                        | moonshot-v1-8k    |
+# | 字节豆包   | https://ark.cn-beijing.volces.com/api/v3          | doubao-pro        |
+# | 百川       | https://api.baichuan-ai.com/v1                    | Baichuan4         |
+# =============================================================================
+#
+# 支持的用途（每档位）:
+#   language          — 对话/问答/摘要（必填）
+#   embedding         — 向量检索（必填）
+#   speech_to_text    — 音频转写（可选）
+#   text_to_speech    — 播客语音合成（可选）
+#   large_context     — 长文本（>105k token）专用（可选）
+#
+# chat/tools/transformation 请求都映射到 language。
+# 档位缺少某用途时，自动回退到 default_tier。

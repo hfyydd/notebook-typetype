@@ -266,7 +266,9 @@ class ModelManager:
         )
         return model
 
-    async def get_default_model(self, model_type: str, **kwargs) -> Optional[ModelType]:
+    async def get_default_model(
+        self, model_type: str, *, tier: Optional[str] = None, **kwargs
+    ) -> Optional[ModelType]:
         """
         Get the default model for a specific type.
 
@@ -276,16 +278,19 @@ class ModelManager:
 
         Args:
             model_type: The type of model to retrieve (e.g., 'chat', 'embedding', etc.)
+            tier: Optional tier name (managed mode). If omitted, the yaml's
+                  default_tier is used.
             **kwargs: Additional arguments to pass to the model constructor
         """
         # --- Managed (YAML) mode takes priority when configured. ---
         provider = self._yaml_provider()
         if provider.is_available():
-            yaml_config = provider.get_model_config(model_type)
+            yaml_config = provider.get_model_config(model_type, tier=tier)
             if yaml_config is not None:
                 return self._build_from_yaml_config(yaml_config, model_type, **kwargs)
             logger.warning(
-                f"No YAML model config for purpose '{model_type}'; "
+                f"No YAML model config for purpose '{model_type}'"
+                f"{f' in tier {tier!r}' if tier else ''}; "
                 f"falling back to database defaults."
             )
 

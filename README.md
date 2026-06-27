@@ -20,10 +20,10 @@
 ### 二开方向
 
 - 🔧 **云服务托管模式**：运维一份配置文件托管所有模型，用户开箱即用，无需配置任何 API Key
+- 🇨🇳 **全面采用国产模型**：所有模型走国产大模型 + OpenAI 兼容端点对接（通义千问 / MiniMax / 智谱 GLM / DeepSeek / 硅基流动等）
 - 🇨🇳 中文场景全链路优化（切块 / Embedding / Prompt）
 - 🎙️ 中文双人播客生成（CosyVoice / MeloTTS）
 - 🔐 私有云部署支持（多用户 / 鉴权）
-- 📚 国产模型深度集成（MiniMax / GLM / Qwen / DeepSeek / 硅基流动）
 
 ---
 
@@ -106,16 +106,18 @@ tiers:
 
 > 📖 完整配置说明见 [docs/deployment/cloud-service.md](docs/deployment/cloud-service.md)
 
-**怎么拿 API Key：**
+**怎么拿 API Key（全面采用国产模型）：**
 
-| 提供商 | 用途 | 获取方式 |
-|--------|------|----------|
-| [硅基流动 SiliconFlow](https://cloud.siliconflow.cn) | embedding（bge-m3，**新用户送 14 元**） | 注册 → 控制台 → API 密钥 → 新建 |
-| [MiniMax](https://platform.minimaxi.com/) | 对话（MiniMax-M3） | 注册 → API Keys |
-| [智谱 GLM](https://open.bigmodel.cn/) | 对话/embedding | 注册 → API Keys |
-| [OpenAI](https://platform.openai.com/) | 全功能 | 注册 → API Keys |
+| 提供商 | 用途 | OpenAI 兼容端点 | 获取方式 |
+|--------|------|-----------------|----------|
+| [硅基流动](https://cloud.siliconflow.cn) | embedding (bge-m3) + STT (SenseVoice) + 开源模型聚合，**新用户送 14 元** | `https://api.siliconflow.cn/v1` | 注册 → 控制台 → API 密钥 → 新建 |
+| [通义千问/百炼](https://bailian.console.aliyun.com) | 对话 (qwen-plus/max/long)，**新用户送额度** | `https://dashscope.aliyuncs.com/compatible-mode/v1` | 注册 → API-KEY 管理 |
+| [MiniMax](https://platform.minimaxi.com/) | 对话 (MiniMax-M3) | `https://api.minimaxi.com/v1` | 注册 → API Keys |
+| [智谱 GLM](https://open.bigmodel.cn/) | 对话 (glm-4-plus) + embedding | `https://open.bigmodel.cn/api/paas/v4` | 注册 → API Keys |
+| [DeepSeek](https://platform.deepseek.com/) | 对话 (deepseek-chat/R1) | `https://api.deepseek.com/v1` | 注册 → API Keys |
+| [月之暗面 Kimi](https://platform.moonshot.cn/) | 对话 (moonshot-v1) | `https://api.moonshot.cn/v1` | 注册 → API Keys |
 
-> 💡 chat 和 embedding **可以分别用不同提供商**——这正是多档位 YAML 架构的优势。例如对话用 MiniMax、向量化用硅基流动。
+> 💡 **chat 和 embedding 可以分别用不同提供商**——例如对话用通义千问、向量化用硅基流动 bge-m3。全部走 OpenAI 兼容协议，一个 `openai_compatible` provider 全覆盖。
 
 > ⚠️ **没有 `config/models.yaml` 也能跑**——会自动回退到原版的"用户在前端自己配 Key"模式（数据库存储）。托管模式是可选增强。
 
