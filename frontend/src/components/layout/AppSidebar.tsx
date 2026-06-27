@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { LanguageToggle } from '@/components/common/LanguageToggle'
+import { useManagedMode } from '@/lib/hooks/use-models'
 import type { TFunction } from 'i18next'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { Separator } from '@/components/ui/separator'
@@ -43,7 +44,7 @@ import {
   Command,
 } from 'lucide-react'
 
-const getNavigation = (t: TFunction) => [
+const getNavigation = (t: TFunction, managedMode = false) => [
   {
     title: t('navigation.collect'),
     items: [
@@ -66,7 +67,11 @@ const getNavigation = (t: TFunction) => [
   {
     title: t('navigation.manage'),
     items: [
-      { name: t('navigation.models'), href: '/settings/api-keys', icon: Bot },
+      // In managed (cloud-service) mode, models are configured by the operator
+      // via config/models.yaml, so the per-user Models page is hidden.
+      ...(managedMode
+        ? []
+        : [{ name: t('navigation.models'), href: '/settings/api-keys', icon: Bot }]),
       { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle },
       { name: t('navigation.settings'), href: '/settings', icon: Settings },
       { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
@@ -78,7 +83,9 @@ type CreateTarget = 'source' | 'notebook' | 'podcast'
 
 export function AppSidebar() {
   const { t } = useTranslation()
-  const navigation = getNavigation(t)
+  const { data: managedMode } = useManagedMode()
+  const managedEnabled = managedMode?.enabled ?? false
+  const navigation = getNavigation(t, managedEnabled)
   const pathname = usePathname()
   const { logout } = useAuth()
   const { isCollapsed, toggleCollapse } = useSidebarStore()

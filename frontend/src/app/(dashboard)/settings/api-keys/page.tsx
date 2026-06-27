@@ -39,7 +39,7 @@ import {
   Bot,
 } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { useModels, useDeleteModel, useModelDefaults, useUpdateModelDefaults, useAutoAssignDefaults, useTestModel } from '@/lib/hooks/use-models'
+import { useModels, useDeleteModel, useModelDefaults, useUpdateModelDefaults, useAutoAssignDefaults, useTestModel, useManagedMode } from '@/lib/hooks/use-models'
 import {
   useCredentials,
   useCredential,
@@ -1332,6 +1332,7 @@ export default function ApiKeysPage() {
   const { data: defaults, isLoading: defaultsLoading } = useModelDefaults()
   const { data: credentialStatus } = useCredentialStatus()
   const { data: envStatus } = useEnvStatus()
+  const { data: managedMode } = useManagedMode()
 
   const encryptionReady = credentialStatus?.encryption_configured ?? true
 
@@ -1378,6 +1379,42 @@ export default function ApiKeysPage() {
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
           <LoadingSpinner size="lg" />
+        </div>
+      </AppShell>
+    )
+  }
+
+  // In managed (cloud-service) mode, models are configured by the operator
+  // via config/models.yaml. Replace the configuration UI with an informational
+  // notice so users aren't confused by a page they can't act on.
+  if (managedMode?.enabled) {
+    return (
+      <AppShell>
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="h-5 w-5" />
+                  {t('apiKeys.title')}
+                </CardTitle>
+                <CardDescription>
+                  {t('apiKeys.managedDescription', {
+                    defaultValue:
+                      'Models are configured and managed by the service operator. No setup is required.',
+                  })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  {t('apiKeys.managedTiers', {
+                    defaultValue: 'Available tiers: {{tiers}}',
+                    tiers: managedMode.tiers.join(', '),
+                  })}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </AppShell>
     )

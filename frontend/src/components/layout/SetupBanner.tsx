@@ -7,11 +7,20 @@ import { Button } from '@/components/ui/button'
 import { ShieldAlert, AlertTriangle, ArrowRight, ExternalLink } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { useCredentialStatus, useEnvStatus } from '@/lib/hooks/use-credentials'
+import { useManagedMode } from '@/lib/hooks/use-models'
 
 export function SetupBanner() {
   const { t } = useTranslation()
+  const { data: managedMode } = useManagedMode()
   const { data: credentialStatus } = useCredentialStatus()
   const { data: envStatus } = useEnvStatus()
+
+  // In managed (cloud-service) mode, models are operator-configured via
+  // config/models.yaml. The encryption / env-migration warnings below are
+  // per-user concerns that don't apply, so suppress the banner entirely.
+  if (managedMode?.enabled) {
+    return null
+  }
 
   const encryptionReady = credentialStatus?.encryption_configured ?? true
 

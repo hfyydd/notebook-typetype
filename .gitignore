@@ -145,3 +145,6 @@ specs/
 # Local runtime data (typo fix: underscore variant)
 surreal_data/
 run/
+
+# Cloud-service model config (contains provider references; keys live in .env)
+config/models.yaml
