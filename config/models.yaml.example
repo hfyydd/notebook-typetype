@@ -1,0 +1,94 @@
+# =============================================================================
+# Model configuration for cloud-service mode
+# =============================================================================
+# Copy this file to config/models.yaml and fill in real values.
+# config/models.yaml is git-ignored — never commit real API keys.
+#
+# When this file is present and valid, the app runs in "managed mode":
+#   - End users never configure models (Settings → Models page is hidden).
+#   - All model selection happens here, per tier.
+#   - API keys are referenced via ${ENV_VAR} so they stay in your .env / env.
+#
+# When this file is ABSENT, the app falls back to the original per-user
+# database configuration (legacy mode), so existing deployments keep working.
+#
+# After editing, either restart the app or call:  POST /api/models/reload
+# =============================================================================
+
+# The tier used when no tier is specified (e.g. anonymous / free users).
+default_tier: free
+
+tiers:
+  # ---------------------------------------------------------------------------
+  # free: lowest cost, good enough for most tasks. Alibaba Qwen via DashScope.
+  # ---------------------------------------------------------------------------
+  free:
+    language:
+      provider: dashscope
+      model: qwen-plus
+      api_key: ${DASHSCOPE_API_KEY}
+    embedding:
+      provider: dashscope
+      model: text-embedding-v3
+      api_key: ${DASHSCOPE_API_KEY}
+
+  # ---------------------------------------------------------------------------
+  # standard: balanced quality & cost. Zhipu GLM-4.
+  # ---------------------------------------------------------------------------
+  standard:
+    language:
+      provider: openai_compatible
+      model: glm-4-plus
+      api_key: ${ZHIPU_API_KEY}
+      base_url: https://open.bigmodel.cn/api/paas/v4
+    embedding:
+      provider: openai_compatible
+      model: embedding-3
+      api_key: ${ZHIPU_API_KEY}
+      base_url: https://open.bigmodel.cn/api/paas/v4
+    text_to_speech:
+      provider: minimax
+      model: speech-01-hd
+      api_key: ${MINIMAX_API_KEY}
+
+  # ---------------------------------------------------------------------------
+  # premium: best quality. OpenAI + Gemini for long context.
+  # ---------------------------------------------------------------------------
+  premium:
+    language:
+      provider: openai
+      model: gpt-4o
+      api_key: ${OPENAI_API_KEY}
+    large_context:                 # used when content > 105k tokens
+      provider: google
+      model: gemini-1.5-pro
+      api_key: ${GOOGLE_API_KEY}
+    embedding:
+      provider: openai
+      model: text-embedding-3-large
+      api_key: ${OPENAI_API_KEY}
+    text_to_speech:
+      provider: openai
+      model: tts-1
+      api_key: ${OPENAI_API_KEY}
+    speech_to_text:
+      provider: openai
+      model: whisper-1
+      api_key: ${OPENAI_API_KEY}
+
+# =============================================================================
+# Supported purposes (per tier):
+#   language          — chat / ask / transformations (required)
+#   embedding         — vector search (required)
+#   text_to_speech    — podcast generation (optional)
+#   speech_to_text    — audio transcription (optional)
+#   large_context     — used when content > 105k tokens (optional)
+#
+# Chat / tools / transformation requests all map onto 'language'.
+# A missing purpose in a tier falls back to the default_tier.
+#
+# Provider names must match what Esperanto's AIFactory accepts:
+#   openai, anthropic, google, groq, mistral, deepseek, xai, openrouter,
+#   voyage, elevenlabs, deepgram, dashscope, minimax, ollama, azure, vertex,
+#   openai_compatible
+# =============================================================================
