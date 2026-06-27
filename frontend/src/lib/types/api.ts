@@ -105,6 +105,7 @@ export interface CreateSourceRequest {
   content?: string
   title?: string
   transformations?: string[]
+  locale?: string
   embed?: boolean
   delete_source?: boolean
   // New async processing support

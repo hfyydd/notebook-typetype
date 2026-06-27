@@ -1,11 +1,11 @@
 import apiClient from './client'
 import {
-  Transformation,
   CreateTransformationRequest,
-  UpdateTransformationRequest,
+  DefaultPrompt,
   ExecuteTransformationRequest,
   ExecuteTransformationResponse,
-  DefaultPrompt
+  Transformation,
+  UpdateTransformationRequest,
 } from '@/lib/types/transformations'
 
 export const transformationsApi = {
@@ -43,8 +43,8 @@ export const transformationsApi = {
     return response.data
   },
 
-  updateDefaultPrompt: async (prompt: { transformation_instructions: string }) => {
+  updateDefaultPrompt: async (prompt: DefaultPrompt) => {
     const response = await apiClient.put<DefaultPrompt>('/transformations/default-prompt', prompt)
     return response.data
-  }
+  },
 }

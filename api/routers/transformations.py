@@ -20,25 +20,58 @@ from open_notebook.graphs.transformation import graph as transformation_graph
 router = APIRouter()
 
 
+def _serialize_transformation(transformation: Transformation) -> TransformationResponse:
+    translations = {
+        locale: fields.model_dump(exclude_none=True)
+        for locale, fields in transformation.get_effective_translations().items()
+    }
+    return TransformationResponse(
+        id=transformation.id or "",
+        name=transformation.name,
+        title=transformation.title,
+        description=transformation.description,
+        prompt=transformation.prompt,
+        apply_default=transformation.apply_default,
+        source_locale=transformation.source_locale,
+        system_key=transformation.system_key,
+        translations=translations,
+        created=str(transformation.created),
+        updated=str(transformation.updated),
+    )
+
+
+def _serialize_default_prompt(default_prompts: DefaultPrompts) -> DefaultPromptResponse:
+    translations = {
+        locale: fields.model_dump(exclude_none=True)
+        for locale, fields in default_prompts.get_effective_translations().items()
+    }
+    return DefaultPromptResponse(
+        transformation_instructions=default_prompts.transformation_instructions or "",
+        source_locale=default_prompts.source_locale,
+        translations=translations,
+    )
+
+
+def _normalize_translations(payload: dict | None) -> dict:
+    if not payload:
+        return {}
+    normalized: dict = {}
+    for locale, fields in payload.items():
+        if hasattr(fields, "model_dump"):
+            normalized[locale] = fields.model_dump(exclude_none=True)
+        elif isinstance(fields, dict):
+            normalized[locale] = {
+                key: value for key, value in fields.items() if value is not None
+            }
+    return normalized
+
+
 @router.get("/transformations", response_model=List[TransformationResponse])
 async def get_transformations():
     """Get all transformations."""
     try:
         transformations = await Transformation.get_all(order_by="name asc")
-
-        return [
-            TransformationResponse(
-                id=transformation.id or "",
-                name=transformation.name,
-                title=transformation.title,
-                description=transformation.description,
-                prompt=transformation.prompt,
-                apply_default=transformation.apply_default,
-                created=str(transformation.created),
-                updated=str(transformation.updated),
-            )
-            for transformation in transformations
-        ]
+        return [_serialize_transformation(transformation) for transformation in transformations]
     except Exception as e:
         logger.error(f"Error fetching transformations: {str(e)}")
         raise HTTPException(
@@ -56,19 +89,13 @@ async def create_transformation(transformation_data: TransformationCreate):
             description=transformation_data.description,
             prompt=transformation_data.prompt,
             apply_default=transformation_data.apply_default,
+            source_locale=transformation_data.source_locale,
+            system_key=transformation_data.system_key,
+            translations=_normalize_translations(transformation_data.translations),
         )
         await new_transformation.save()
 
-        return TransformationResponse(
-            id=new_transformation.id or "",
-            name=new_transformation.name,
-            title=new_transformation.title,
-            description=new_transformation.description,
-            prompt=new_transformation.prompt,
-            apply_default=new_transformation.apply_default,
-            created=str(new_transformation.created),
-            updated=str(new_transformation.updated),
-        )
+        return _serialize_transformation(new_transformation)
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -82,23 +109,26 @@ async def create_transformation(transformation_data: TransformationCreate):
 async def execute_transformation(execute_request: TransformationExecuteRequest):
     """Execute a transformation on input text."""
     try:
-        # Validate transformation exists
         transformation = await Transformation.get(execute_request.transformation_id)
         if not transformation:
             raise HTTPException(status_code=404, detail="Transformation not found")
 
-        # Validate model exists
         model = await Model.get(execute_request.model_id)
         if not model:
             raise HTTPException(status_code=404, detail="Model not found")
 
-        # Execute the transformation
         result = await transformation_graph.ainvoke(
             dict(  # type: ignore[arg-type]
                 input_text=execute_request.input_text,
                 transformation=transformation,
+                locale=execute_request.locale,
             ),
-            config=dict(configurable={"model_id": execute_request.model_id}),
+            config=dict(
+                configurable={
+                    "model_id": execute_request.model_id,
+                    "locale": execute_request.locale,
+                }
+            ),
         )
 
         return TransformationExecuteResponse(
@@ -110,7 +140,7 @@ async def execute_transformation(execute_request: TransformationExecuteRequest):
     except HTTPException:
         raise
     except OpenNotebookError:
-        raise  # Let global exception handlers return proper status codes
+        raise
     except Exception as e:
         logger.error(f"Error executing transformation: {str(e)}")
         raise HTTPException(
@@ -123,11 +153,7 @@ async def get_default_prompt():
     """Get the default transformation prompt."""
     try:
         default_prompts: DefaultPrompts = await DefaultPrompts.get_instance()  # type: ignore[assignment]
-
-        return DefaultPromptResponse(
-            transformation_instructions=default_prompts.transformation_instructions
-            or ""
-        )
+        return _serialize_default_prompt(default_prompts)
     except Exception as e:
         logger.error(f"Error fetching default prompt: {str(e)}")
         raise HTTPException(
@@ -140,15 +166,14 @@ async def update_default_prompt(prompt_update: DefaultPromptUpdate):
     """Update the default transformation prompt."""
     try:
         default_prompts: DefaultPrompts = await DefaultPrompts.get_instance()  # type: ignore[assignment]
-
         default_prompts.transformation_instructions = (
             prompt_update.transformation_instructions
         )
+        default_prompts.source_locale = prompt_update.source_locale
+        default_prompts.translations = _normalize_translations(prompt_update.translations)
         await default_prompts.update()
 
-        return DefaultPromptResponse(
-            transformation_instructions=default_prompts.transformation_instructions
-        )
+        return _serialize_default_prompt(default_prompts)
     except Exception as e:
         logger.error(f"Error updating default prompt: {str(e)}")
         raise HTTPException(
@@ -166,16 +191,7 @@ async def get_transformation(transformation_id: str):
         if not transformation:
             raise HTTPException(status_code=404, detail="Transformation not found")
 
-        return TransformationResponse(
-            id=transformation.id or "",
-            name=transformation.name,
-            title=transformation.title,
-            description=transformation.description,
-            prompt=transformation.prompt,
-            apply_default=transformation.apply_default,
-            created=str(transformation.created),
-            updated=str(transformation.updated),
-        )
+        return _serialize_transformation(transformation)
     except HTTPException:
         raise
     except Exception as e:
@@ -197,7 +213,6 @@ async def update_transformation(
         if not transformation:
             raise HTTPException(status_code=404, detail="Transformation not found")
 
-        # Update only provided fields
         if transformation_update.name is not None:
             transformation.name = transformation_update.name
         if transformation_update.title is not None:
@@ -208,19 +223,20 @@ async def update_transformation(
             transformation.prompt = transformation_update.prompt
         if transformation_update.apply_default is not None:
             transformation.apply_default = transformation_update.apply_default
+        if "source_locale" in transformation_update.model_fields_set:
+            transformation.source_locale = (
+                transformation_update.source_locale or transformation.source_locale
+            )
+        if "system_key" in transformation_update.model_fields_set:
+            transformation.system_key = transformation_update.system_key
+        if "translations" in transformation_update.model_fields_set:
+            transformation.translations = _normalize_translations(
+                transformation_update.translations or {}
+            )
 
         await transformation.save()
 
-        return TransformationResponse(
-            id=transformation.id or "",
-            name=transformation.name,
-            title=transformation.title,
-            description=transformation.description,
-            prompt=transformation.prompt,
-            apply_default=transformation.apply_default,
-            created=str(transformation.created),
-            updated=str(transformation.updated),
-        )
+        return _serialize_transformation(transformation)
     except HTTPException:
         raise
     except InvalidInputError as e:

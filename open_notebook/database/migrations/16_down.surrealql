@@ -1,0 +1,9 @@
+-- Migration 16 down: remove localization fields from transformation table
+
+REMOVE INDEX IF EXISTS idx_transformation_system_key ON TABLE transformation;
+
+UPDATE transformation REMOVE source_locale, system_key, translations;
+
+DEFINE FIELD IF NOT EXISTS source_locale ON TABLE transformation TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS system_key ON TABLE transformation TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS translations ON TABLE transformation TYPE option<object>;

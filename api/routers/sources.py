@@ -102,6 +102,7 @@ def parse_source_form_data(
     content: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
     transformations: Optional[str] = Form(None),  # JSON string of transformation IDs
+    locale: str = Form("en-US"),
     embed: str = Form("false"),  # Accept as string, convert to bool
     delete_source: str = Form("false"),  # Accept as string, convert to bool
     async_processing: str = Form("false"),  # Accept as string, convert to bool
@@ -146,6 +147,7 @@ def parse_source_form_data(
             title=title,
             file_path=None,  # Will be set later if file is uploaded
             transformations=transformations_list,
+            locale=locale,
             embed=embed_bool,
             delete_source=delete_source_bool,
             async_processing=async_processing_bool,
@@ -401,6 +403,7 @@ async def create_source(
                     content_state=content_state,
                     notebook_ids=source_data.notebooks,
                     transformations=transformation_ids,
+                    locale=source_data.locale,
                     embed=source_data.embed,
                 )
 
@@ -476,6 +479,7 @@ async def create_source(
                     content_state=content_state,
                     notebook_ids=source_data.notebooks,
                     transformations=transformation_ids,
+                    locale=source_data.locale,
                     embed=source_data.embed,
                 )
 
@@ -892,6 +896,7 @@ async def retry_source_processing(source_id: str):
                 content_state=content_state,
                 notebook_ids=notebook_ids,
                 transformations=[],  # Use default transformations on retry
+                locale="en-US",
                 embed=True,  # Always embed on retry
             )
 
@@ -1029,6 +1034,7 @@ async def create_source_insight(source_id: str, request: CreateSourceInsightRequ
             {
                 "source_id": source_id,
                 "transformation_id": request.transformation_id,
+                "locale": request.locale,
             },
         )
         logger.info(

@@ -67,6 +67,8 @@ import { formatDistanceToNow } from 'date-fns'
 import { getDateLocale } from '@/lib/utils/date-locale'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { normalizeLanguageCode } from '@/lib/locales'
+import { resolveTransformationFields } from '@/lib/utils/transformation-localization'
 import { SourceInsightDialog } from '@/components/source/SourceInsightDialog'
 import { NotebookAssociations } from '@/components/source/NotebookAssociations'
 
@@ -159,7 +161,8 @@ export function SourceDetailContent({
     try {
       setCreatingInsight(true)
       const response = await insightsApi.create(sourceId, {
-        transformation_id: selectedTransformation
+        transformation_id: selectedTransformation,
+        locale: normalizeLanguageCode(language),
       })
       // Show toast for async operation
       toast.success(t('sources.insightGenerationStarted'))
@@ -588,11 +591,14 @@ export function SourceDetailContent({
                         <SelectValue placeholder={t('sources.selectTransformation')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {transformations.map((trans) => (
-                          <SelectItem key={trans.id} value={trans.id}>
-                            {trans.title || trans.name}
-                          </SelectItem>
-                        ))}
+                        {transformations.map((trans) => {
+                          const localized = resolveTransformationFields(trans, language)
+                          return (
+                            <SelectItem key={trans.id} value={trans.id}>
+                              {localized.title || localized.name}
+                            </SelectItem>
+                          )
+                        })}
                       </SelectContent>
                     </Select>
                     <Button

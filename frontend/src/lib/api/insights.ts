@@ -11,6 +11,8 @@ export interface SourceInsightResponse {
 
 export interface CreateSourceInsightRequest {
   transformation_id: string
+  model_id?: string
+  locale: string
 }
 
 export interface InsightCreationResponse {
@@ -42,7 +44,7 @@ export const insightsApi = {
   create: async (sourceId: string, data: CreateSourceInsightRequest) => {
     const response = await apiClient.post<InsightCreationResponse>(
       `/sources/${sourceId}/insights`,
-      data
+      data,
     )
     return response.data
   },
@@ -53,21 +55,17 @@ export const insightsApi = {
 
   getCommandStatus: async (commandId: string) => {
     const response = await apiClient.get<CommandJobStatusResponse>(
-      `/commands/jobs/${commandId}`
+      `/commands/jobs/${commandId}`,
     )
     return response.data
   },
 
-  /**
-   * Poll command status until completed or failed.
-   * Returns true if completed successfully, false if failed.
-   */
   waitForCommand: async (
     commandId: string,
-    options?: { maxAttempts?: number; intervalMs?: number }
+    options?: { maxAttempts?: number; intervalMs?: number },
   ): Promise<boolean> => {
-    const maxAttempts = options?.maxAttempts ?? 60 // Default 60 attempts
-    const intervalMs = options?.intervalMs ?? 2000 // Default 2 seconds
+    const maxAttempts = options?.maxAttempts ?? 60
+    const intervalMs = options?.intervalMs ?? 2000
 
     for (let i = 0; i < maxAttempts; i++) {
       try {
@@ -79,16 +77,14 @@ export const insightsApi = {
           console.error('Command failed:', status.error_message)
           return false
         }
-        // Still running, wait and retry
-        await new Promise(resolve => setTimeout(resolve, intervalMs))
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
       } catch (error) {
         console.error('Error checking command status:', error)
-        // Continue polling on error
-        await new Promise(resolve => setTimeout(resolve, intervalMs))
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
       }
     }
-    // Timeout
+
     console.warn('Command polling timed out')
     return false
-  }
+  },
 }

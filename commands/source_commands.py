@@ -34,6 +34,7 @@ class SourceProcessingInput(CommandInput):
     content_state: Dict[str, Any]
     notebook_ids: List[str]
     transformations: List[str]
+    locale: str = "en-US"
     embed: bool
 
 
@@ -108,6 +109,7 @@ async def process_source_command(
                 "notebook_ids": input_data.notebook_ids,  # Use notebook_ids (plural) as expected by SourceState
                 "apply_transformations": transformations,
                 "embed": input_data.embed,
+                "locale": input_data.locale,
                 "source_id": input_data.source_id,  # Add the source_id to the state
             }
         )
@@ -165,6 +167,7 @@ class RunTransformationInput(CommandInput):
 
     source_id: str
     transformation_id: str
+    locale: str = "en-US"
 
 
 class RunTransformationOutput(CommandOutput):
@@ -230,7 +233,11 @@ async def run_transformation_command(
 
         # Run transformation graph (includes LLM call + insight creation)
         await transform_graph.ainvoke(
-            input=dict(source=source, transformation=transformation)
+            input=dict(
+                source=source,
+                transformation=transformation,
+                locale=input_data.locale,
+            )
         )
 
         processing_time = time.time() - start_time

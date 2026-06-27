@@ -102,6 +102,21 @@ class ProviderAvailabilityResponse(BaseModel):
 
 
 # Transformations API models
+class TransformationTranslationPayload(BaseModel):
+    name: Optional[str] = Field(None, description="Localized transformation name")
+    title: Optional[str] = Field(None, description="Localized display title")
+    description: Optional[str] = Field(
+        None, description="Localized transformation description"
+    )
+    prompt: Optional[str] = Field(None, description="Localized transformation prompt")
+
+
+class DefaultPromptTranslationPayload(BaseModel):
+    transformation_instructions: Optional[str] = Field(
+        None, description="Localized default transformation instructions"
+    )
+
+
 class TransformationCreate(BaseModel):
     name: str = Field(..., description="Transformation name")
     title: str = Field(..., description="Display title for the transformation")
@@ -111,6 +126,16 @@ class TransformationCreate(BaseModel):
     prompt: str = Field(..., description="The transformation prompt")
     apply_default: bool = Field(
         False, description="Whether to apply this transformation by default"
+    )
+    source_locale: str = Field(
+        "en-US", description="Locale used as the source language for top-level fields"
+    )
+    system_key: Optional[str] = Field(
+        None, description="Stable key for built-in system transformations"
+    )
+    translations: Dict[str, TransformationTranslationPayload] = Field(
+        default_factory=dict,
+        description="Localized transformation fields by locale code",
     )
 
 
@@ -126,6 +151,15 @@ class TransformationUpdate(BaseModel):
     apply_default: Optional[bool] = Field(
         None, description="Whether to apply this transformation by default"
     )
+    source_locale: Optional[str] = Field(
+        None, description="Locale used as the source language for top-level fields"
+    )
+    system_key: Optional[str] = Field(
+        None, description="Stable key for built-in system transformations"
+    )
+    translations: Optional[Dict[str, TransformationTranslationPayload]] = Field(
+        None, description="Localized transformation fields by locale code"
+    )
 
 
 class TransformationResponse(BaseModel):
@@ -135,6 +169,11 @@ class TransformationResponse(BaseModel):
     description: str
     prompt: str
     apply_default: bool
+    source_locale: str
+    system_key: Optional[str] = None
+    translations: Dict[str, TransformationTranslationPayload] = Field(
+        default_factory=dict
+    )
     created: str
     updated: str
 
@@ -147,6 +186,9 @@ class TransformationExecuteRequest(BaseModel):
     )
     input_text: str = Field(..., description="Text to transform")
     model_id: str = Field(..., description="Model ID to use for the transformation")
+    locale: str = Field(
+        "en-US", description="Locale used to resolve localized transformation prompts"
+    )
 
 
 class TransformationExecuteResponse(BaseModel):
@@ -162,11 +204,25 @@ class DefaultPromptResponse(BaseModel):
     transformation_instructions: str = Field(
         ..., description="Default transformation instructions"
     )
+    source_locale: str = Field(
+        ..., description="Locale used as the source language for top-level fields"
+    )
+    translations: Dict[str, DefaultPromptTranslationPayload] = Field(
+        default_factory=dict,
+        description="Localized default prompt fields by locale code",
+    )
 
 
 class DefaultPromptUpdate(BaseModel):
     transformation_instructions: str = Field(
         ..., description="Default transformation instructions"
+    )
+    source_locale: str = Field(
+        "en-US", description="Locale used as the source language for top-level fields"
+    )
+    translations: Dict[str, DefaultPromptTranslationPayload] = Field(
+        default_factory=dict,
+        description="Localized default prompt fields by locale code",
     )
 
 
@@ -296,6 +352,9 @@ class SourceCreate(BaseModel):
     transformations: Optional[List[str]] = Field(
         default_factory=list, description="Transformation IDs to apply"
     )
+    locale: str = Field(
+        "en-US", description="Locale used to resolve transformation prompts"
+    )
     embed: bool = Field(False, description="Whether to embed content for vector search")
     delete_source: bool = Field(
         False, description="Whether to delete uploaded file after processing"
@@ -420,6 +479,9 @@ class CreateSourceInsightRequest(BaseModel):
     transformation_id: str = Field(..., description="ID of transformation to apply")
     model_id: Optional[str] = Field(
         None, description="Model ID (uses default if not provided)"
+    )
+    locale: str = Field(
+        "en-US", description="Locale used to resolve transformation prompts"
     )
 
 

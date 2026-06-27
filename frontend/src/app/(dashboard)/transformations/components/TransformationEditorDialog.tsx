@@ -34,7 +34,7 @@ interface TransformationEditorDialogProps {
 }
 
 export function TransformationEditorDialog({ open, onOpenChange, transformation }: TransformationEditorDialogProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const nameId = useId()
   const titleId = useId()
   const defaultId = useId()
@@ -90,16 +90,19 @@ export function TransformationEditorDialog({ open, onOpenChange, transformation 
           description: data.description || undefined,
           prompt: data.prompt,
           apply_default: Boolean(data.apply_default),
+          source_locale: language || 'en-US',
         },
       })
       queryClient.invalidateQueries({ queryKey: TRANSFORMATION_QUERY_KEYS.transformation(transformation.id) })
     } else {
+      const currentLocale = language || 'en-US'
       await createTransformation.mutateAsync({
         name: data.name,
         title: data.title || data.name,
         description: data.description || '',
         prompt: data.prompt,
         apply_default: Boolean(data.apply_default),
+        source_locale: currentLocale,
       })
     }
 

@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { ChevronDown, ChevronRight, Edit, Trash2, Wand2 } from 'lucide-react'
+
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { ChevronDown, ChevronRight, Trash2, Wand2, Edit } from 'lucide-react'
-import { Transformation } from '@/lib/types/transformations'
 import { useDeleteTransformation } from '@/lib/hooks/use-transformations'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { Transformation } from '@/lib/types/transformations'
 import { cn } from '@/lib/utils'
+import { resolveTransformationFields } from '@/lib/utils/transformation-localization'
 
 interface TransformationCardProps {
   transformation: Transformation
@@ -19,10 +21,11 @@ interface TransformationCardProps {
 }
 
 export function TransformationCard({ transformation, onPlayground, onEdit }: TransformationCardProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const deleteTransformation = useDeleteTransformation()
+  const localized = resolveTransformationFields(transformation, language)
 
   const handleDelete = () => {
     deleteTransformation.mutate(transformation.id)
@@ -43,9 +46,9 @@ export function TransformationCard({ transformation, onPlayground, onEdit }: Tra
                     <ChevronRight className="h-5 w-5" />
                   )}
                   <div className="flex flex-col">
-                    <span className="font-semibold">{transformation.name}</span>
-                    {!isExpanded && transformation.description && (
-                      <span className="text-sm text-muted-foreground">{transformation.description}</span>
+                    <span className="font-semibold">{localized.name}</span>
+                    {!isExpanded && localized.description && (
+                      <span className="text-sm text-muted-foreground">{localized.description}</span>
                     )}
                   </div>
                   {transformation.apply_default && (
@@ -83,20 +86,20 @@ export function TransformationCard({ transformation, onPlayground, onEdit }: Tra
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">{t('common.title')}</p>
-                <p className="text-sm font-medium">{transformation.title || t('sources.untitledSource')}</p>
+                <p className="text-sm font-medium">{localized.title || t('sources.untitledSource')}</p>
               </div>
 
-              {transformation.description && (
+              {localized.description && (
                 <div>
                   <p className="text-sm text-muted-foreground">{t('common.description')}</p>
-                  <p className="text-sm leading-6">{transformation.description}</p>
+                  <p className="text-sm leading-6">{localized.description}</p>
                 </div>
               )}
 
               <div>
                 <p className="text-sm text-muted-foreground">{t('transformations.systemPrompt')}</p>
                 <pre className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 text-sm font-mono">
-                  {transformation.prompt}
+                  {localized.prompt}
                 </pre>
               </div>
             </CardContent>

@@ -25,7 +25,19 @@ export function DefaultPromptEditor() {
   }, [defaultPrompt])
 
   const handleSave = () => {
-    updateDefaultPrompt.mutate({ transformation_instructions: prompt })
+    const currentLocale = defaultPrompt?.source_locale || 'en-US'
+    const nextTranslations = {
+      ...(defaultPrompt?.translations || {}),
+    }
+    nextTranslations[currentLocale] = {
+      ...(nextTranslations[currentLocale] || {}),
+      transformation_instructions: prompt,
+    }
+    updateDefaultPrompt.mutate({
+      transformation_instructions: prompt,
+      source_locale: currentLocale,
+      translations: nextTranslations,
+    })
   }
 
   return (

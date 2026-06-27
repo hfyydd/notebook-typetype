@@ -23,12 +23,14 @@ class SourceState(TypedDict):
     notebook_ids: List[str]
     source: Source
     transformation: Annotated[list, operator.add]
+    locale: str
     embed: bool
 
 
 class TransformationState(TypedDict):
     source: Source
     transformation: Transformation
+    locale: str
 
 
 async def content_process(state: SourceState) -> dict:
@@ -153,6 +155,7 @@ def trigger_transformations(state: SourceState, config: RunnableConfig) -> List[
             {
                 "source": state["source"],
                 "transformation": t,
+                "locale": state.get("locale", "en-US"),
             },
         )
         for t in to_apply
@@ -165,12 +168,18 @@ async def transform_content(state: TransformationState) -> Optional[dict]:
     if not content:
         return None
     transformation: Transformation = state["transformation"]
+    locale = state.get("locale", "en-US")
+    localized_fields = transformation.resolve_localized_fields(locale)
 
-    logger.debug(f"Applying transformation {transformation.name}")
+    logger.debug(f"Applying transformation {localized_fields['name']}")
     result = await transform_graph.ainvoke(
-        dict(input_text=content, transformation=transformation)  # type: ignore[arg-type]
+        dict(
+            input_text=content,
+            transformation=transformation,
+            locale=locale,
+        )  # type: ignore[arg-type]
     )
-    await source.add_insight(transformation.title, result["output"])
+    await source.add_insight(localized_fields["title"], result["output"])
     return {
         "transformation": [
             {
