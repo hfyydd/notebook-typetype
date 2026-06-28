@@ -12,7 +12,11 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from api.auth import PasswordAuthMiddleware
+from api.auth import (
+    JWTAuthMiddleware,
+    PasswordAuthMiddleware,
+    get_auth_mode,
+)
 from api.routers import (
     auth,
     chat,
@@ -192,20 +196,44 @@ if CORS_IS_DEFAULT_WILDCARD:
 else:
     logger.info(f"CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
 
-# Add password authentication middleware first
-# Exclude /api/auth/status and /api/config from authentication
-app.add_middleware(
-    PasswordAuthMiddleware,
-    excluded_paths=[
-        "/",
-        "/health",
-        "/docs",
-        "/openapi.json",
-        "/redoc",
-        "/api/auth/status",
-        "/api/config",
-    ],
-)
+# --- Auth middleware: pick based on AUTH_MODE env var ---------------------
+#   none     (default): no auth (single-user / local dev)
+#   password:          legacy deployment password (OPEN_NOTEBOOK_PASSWORD)
+#   jwt:               multi-tenant cloud-service mode (email+password → JWT)
+_auth_mode = get_auth_mode()
+_auth_excluded_paths = [
+    "/",
+    "/health",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/api/auth/status",
+    "/api/config",
+]
+
+if _auth_mode == "jwt":
+    # Multi-tenant: also expose register/login publicly.
+    _auth_excluded_paths += ["/api/auth/login", "/api/auth/register"]
+    import os
+
+    if not os.environ.get("JWT_SECRET_KEY"):
+        logger.warning(
+            "AUTH_MODE=jwt but JWT_SECRET_KEY is not set. "
+            "Generate one with: openssl rand -hex 32"
+        )
+    app.add_middleware(JWTAuthMiddleware, excluded_paths=_auth_excluded_paths)
+    logger.info("Auth mode: jwt (multi-tenant). User login required.")
+elif _auth_mode == "password":
+    app.add_middleware(
+        PasswordAuthMiddleware, excluded_paths=_auth_excluded_paths
+    )
+    logger.info("Auth mode: password (deployment-level).")
+else:
+    # Still register PasswordAuthMiddleware: it no-ops when no password is set.
+    app.add_middleware(
+        PasswordAuthMiddleware, excluded_paths=_auth_excluded_paths
+    )
+    logger.info("Auth mode: none (single-user / local dev).")
 
 # Add CORS middleware last (so it processes first)
 app.add_middleware(

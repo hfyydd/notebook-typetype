@@ -8,7 +8,11 @@ from typing import Any, Dict, Optional
 
 from jose import JWTError, jwt
 from loguru import logger
-from passlib.context import CryptContext
+
+try:
+    import bcrypt
+except ImportError as e:  # pragma: no cover
+    raise ImportError("bcrypt is required: uv add bcrypt") from e
 
 # --- Configuration (read once) -------------------------------------------
 
@@ -27,18 +31,17 @@ JWT_ALGORITHM = "HS256"
 # Access tokens last 7 days; refresh tokens / expiry hardening is Phase 3.
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
-# --- Password hashing ----------------------------------------------------
+# --- Password hashing (bcrypt directly; passlib has compat issues with
+# bcrypt 5.x) -------------------------------------------------------------
 
 def hash_password(plain: str) -> str:
-    return _pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return _pwd_context.verify(plain, hashed)
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
 

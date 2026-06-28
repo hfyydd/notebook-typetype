@@ -8,7 +8,7 @@ Provides:
 - GET  /auth/me       — JWT mode: current user profile
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from loguru import logger
 
@@ -131,6 +131,33 @@ async def login(req: LoginRequest):
     return AuthResponse(token=token, user=user.public())
 
 
+async def _default_user_from_token(
+    request: "Request",
+) -> dict:
+    """Extract the JWT payload from the Authorization header (used by /me)."""
+    import os
+
+    if os.environ.get("AUTH_MODE", "none").lower() != "jwt":
+        raise HTTPException(status_code=400, detail="JWT mode required.")
+    # The JWT middleware already validated the token and attached user info to
+    # request.state; reuse it instead of re-parsing.
+    user_id = getattr(request.state, "user_id", None)
+    if user_id:
+        return {
+            "sub": user_id,
+            "email": getattr(request.state, "user_email", None),
+        }
+    auth = request.headers.get("Authorization", "")
+    if not auth.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=401, detail="Missing or invalid Authorization header."
+        )
+    payload = decode_access_token(auth.split(" ", 1)[1].strip())
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    return payload
+
+
 @router.get("/me", response_model=MeResponse)
 async def me(payload: dict = Depends(_default_user_from_token)):
     """Return the current authenticated user's profile."""
@@ -140,22 +167,3 @@ async def me(payload: dict = Depends(_default_user_from_token)):
         name=payload.get("name"),
         tier=payload.get("tier"),
     )
-
-
-# Local dependency used only by /me in jwt mode. The real app-wide dependency
-# (get_current_user) lives in api.auth and is wired through the middleware.
-async def _default_user_from_token(authorization: str | None = None) -> dict:
-    """Extract the JWT payload from the Authorization header."""
-    import os
-
-    if os.environ.get("AUTH_MODE", "none").lower() != "jwt":
-        raise HTTPException(status_code=400, detail="JWT mode required.")
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=401, detail="Missing or invalid Authorization header."
-        )
-    token = authorization.split(" ", 1)[1].strip()
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    return payload
