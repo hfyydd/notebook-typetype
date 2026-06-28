@@ -11,6 +11,7 @@ Provides:
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from loguru import logger
+from typing import Optional
 
 from open_notebook.auth.service import (
     create_access_token,
