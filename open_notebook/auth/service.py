@@ -48,10 +48,13 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 # --- JWT -----------------------------------------------------------------
 
-def create_access_token(user_id: str, email: str) -> str:
+def create_access_token(
+    user_id: str, email: str, tier: Optional[str] = None
+) -> str:
     payload = {
         "sub": user_id,
         "email": email,
+        "tier": tier,
         "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS),
     }

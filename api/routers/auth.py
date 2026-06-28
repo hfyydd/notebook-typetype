@@ -85,6 +85,17 @@ def _ensure_jwt_mode() -> None:
         )
 
 
+def _get_default_tier() -> Optional[str]:
+    """Return the yaml default_tier for new users (None if managed mode off)."""
+    try:
+        from open_notebook.ai.model_config import ModelConfigProvider
+
+        provider = ModelConfigProvider.get_instance()
+        return provider.get_default_tier() if provider.is_available() else None
+    except Exception:
+        return None
+
+
 @router.post("/register", response_model=AuthResponse)
 async def register(req: RegisterRequest):
     """Create a new user account and return a JWT."""
@@ -97,15 +108,22 @@ async def register(req: RegisterRequest):
             detail="This email is already registered.",
         )
 
+    # New users start on the yaml default_tier (typically "free"). If managed
+    # mode is off, tier stays None.
+    default_tier = _get_default_tier()
+
     user = User(
         email=req.email,
         password_hash=hash_password(req.password),
         name=req.name,
+        tier=default_tier,
     )
     await user.save()
 
-    token = create_access_token(user.id, user.email)
-    logger.info(f"New user registered: {user.email} ({user.id})")
+    token = create_access_token(user.id, user.email, tier=user.tier)
+    logger.info(
+        f"New user registered: {user.email} ({user.id}) tier={user.tier}"
+    )
     return AuthResponse(token=token, user=user.public())
 
 
@@ -126,7 +144,7 @@ async def login(req: LoginRequest):
             detail="Incorrect email or password.",
         )
 
-    token = create_access_token(user.id, user.email)
+    token = create_access_token(user.id, user.email, tier=user.tier)
     logger.info(f"User logged in: {user.email}")
     return AuthResponse(token=token, user=user.public())
 

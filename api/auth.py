@@ -178,6 +178,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         # Attach user context for downstream handlers + tenant filtering.
         request.state.user_id = payload.get("sub")
         request.state.user_email = payload.get("email")
+        request.state.user_tier = payload.get("tier")
         return await call_next(request)
 
 
@@ -212,9 +213,13 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        from open_notebook.database.tenant_context import set_current_user_id
+        from open_notebook.database.tenant_context import (
+            set_current_tier,
+            set_current_user_id,
+        )
 
         user_id = getattr(request.state, "user_id", None)
         if user_id:
             set_current_user_id(user_id)
+            set_current_tier(getattr(request.state, "user_tier", None))
         return await call_next(request)
