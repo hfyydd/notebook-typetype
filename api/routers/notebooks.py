@@ -49,16 +49,29 @@ async def get_notebooks(
                 detail=f"Invalid order_by format: '{order_by}'. Expected 'field' or 'field direction'",
             )
 
-        # Build the query with counts
-        query = f"""
-            SELECT *,
-            count(<-reference.in) as source_count,
-            count(<-artifact.in) as note_count
-            FROM notebook
-            ORDER BY {validated_order_by}
-        """
+        # Build the query with counts, scoped to the current tenant when present.
+        from open_notebook.database.tenant_context import get_current_user_id
 
-        result = await repo_query(query)
+        uid = get_current_user_id()
+        if uid:
+            query = f"""
+                SELECT *,
+                count(<-reference.in) as source_count,
+                count(<-artifact.in) as note_count
+                FROM notebook
+                WHERE user_id = $user_id OR user_id IS NONE
+                ORDER BY {validated_order_by}
+            """
+            result = await repo_query(query, {"user_id": uid})
+        else:
+            query = f"""
+                SELECT *,
+                count(<-reference.in) as source_count,
+                count(<-artifact.in) as note_count
+                FROM notebook
+                ORDER BY {validated_order_by}
+            """
+            result = await repo_query(query)
 
         # Filter by archived status if specified
         if archived is not None:

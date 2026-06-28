@@ -200,3 +200,21 @@ async def get_current_user(request: Request) -> dict:
         }
     # none / password mode: synthetic anonymous user (legacy single-tenant).
     return {"id": None, "email": None}
+
+
+class TenantContextMiddleware(BaseHTTPMiddleware):
+    """
+    Propagate request.state.user_id into the tenant contextvar so that
+    ObjectModel.save()/get_all() filter by the current tenant automatically.
+
+    Runs after JWTAuthMiddleware. In non-jwt modes user_id is None and the
+    contextvar stays unset (no filtering) — preserving single-user behavior.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        from open_notebook.database.tenant_context import set_current_user_id
+
+        user_id = getattr(request.state, "user_id", None)
+        if user_id:
+            set_current_user_id(user_id)
+        return await call_next(request)

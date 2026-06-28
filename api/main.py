@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.auth import (
     JWTAuthMiddleware,
     PasswordAuthMiddleware,
+    TenantContextMiddleware,
     get_auth_mode,
 )
 from api.routers import (
@@ -221,6 +222,10 @@ if _auth_mode == "jwt":
             "AUTH_MODE=jwt but JWT_SECRET_KEY is not set. "
             "Generate one with: openssl rand -hex 32"
         )
+    # Middleware execution order is the REVERSE of registration order in
+    # Starlette. We register TenantContext first so it runs LAST (after
+    # JWTAuthMiddleware has set request.state.user_id).
+    app.add_middleware(TenantContextMiddleware)
     app.add_middleware(JWTAuthMiddleware, excluded_paths=_auth_excluded_paths)
     logger.info("Auth mode: jwt (multi-tenant). User login required.")
 elif _auth_mode == "password":
