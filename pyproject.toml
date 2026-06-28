@@ -42,6 +42,9 @@ dependencies = [
     "pycountry>=26.2.16",
     "babel>=2.18.0",
     "python-socks[asyncio]>=2.8.2",
+    "python-jose[cryptography]>=3.5.0",
+    "passlib[bcrypt]>=1.7.4",
+    "email-validator>=2.3.0",
 ]
 
 [tool.setuptools]
