@@ -1,0 +1,9 @@
+-- Rollback migration 17: remove multi-tenant user_id columns.
+REMOVE INDEX IF EXISTS idx_notebook_user ON TABLE notebook;
+REMOVE INDEX IF EXISTS idx_source_user ON TABLE source;
+REMOVE INDEX IF EXISTS idx_note_user ON TABLE note;
+REMOVE INDEX IF EXISTS idx_chat_session_user ON TABLE chat_session;
+REMOVE FIELD IF EXISTS user_id ON TABLE notebook;
+REMOVE FIELD IF EXISTS user_id ON TABLE source;
+REMOVE FIELD IF EXISTS user_id ON TABLE note;
+REMOVE FIELD IF EXISTS user_id ON TABLE chat_session;

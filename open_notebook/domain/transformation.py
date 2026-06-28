@@ -86,6 +86,7 @@ class DefaultPromptTranslation(BaseModel):
 
 class Transformation(ObjectModel):
     table_name: ClassVar[str] = "transformation"
+    tenant_scoped: ClassVar[bool] = False  # system templates shared by all users
     name: str
     title: str
     description: str

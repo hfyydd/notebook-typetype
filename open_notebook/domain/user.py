@@ -18,6 +18,7 @@ class User(ObjectModel):
     """
 
     table_name: ClassVar[str] = "user"
+    tenant_scoped: ClassVar[bool] = False  # users are not filtered by user_id
 
     email: EmailStr
     password_hash: str
