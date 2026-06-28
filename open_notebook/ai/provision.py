@@ -15,7 +15,15 @@ async def provision_langchain_model(
     If context > 105_000, returns the large_context_model
     If model_id is specified in Config, returns that model
     Otherwise, returns the default model for the given type
+
+    In managed (cloud-service) mode, the model tier is read from the request
+    context (set by the auth middleware), so each user gets their own tier's
+    models automatically — no call-site changes needed.
     """
+    from open_notebook.database.tenant_context import get_current_tier
+
+    tier = get_current_tier()
+
     tokens = token_count(content)
     model = None
     selection_reason = ""
@@ -25,13 +33,17 @@ async def provision_langchain_model(
         logger.debug(
             f"Using large context model because the content has {tokens} tokens"
         )
-        model = await model_manager.get_default_model("large_context", **kwargs)
+        model = await model_manager.get_default_model(
+            "large_context", tier=tier, **kwargs
+        )
     elif model_id:
         selection_reason = f"explicit model_id={model_id}"
         model = await model_manager.get_model(model_id, **kwargs)
     else:
         selection_reason = f"default for type={default_type}"
-        model = await model_manager.get_default_model(default_type, **kwargs)
+        model = await model_manager.get_default_model(
+            default_type, tier=tier, **kwargs
+        )
 
     logger.debug(f"Using model: {model}")
 

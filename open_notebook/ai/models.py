@@ -231,40 +231,74 @@ class ModelManager:
         return defaults
 
     async def get_speech_to_text(self, **kwargs) -> Optional[SpeechToTextModel]:
-        """Get the default speech-to-text model"""
+        """Get the default speech-to-text model (YAML tier-aware)."""
+        model = await self._managed_model("speech_to_text", **kwargs)
+        if model is not None:
+            return model  # type: ignore[return-value]
         defaults = await self.get_defaults()
         model_id = defaults.default_speech_to_text_model
         if not model_id:
             return None
-        model = await self.get_model(model_id, **kwargs)
-        assert model is None or isinstance(model, SpeechToTextModel), (
-            f"Expected SpeechToTextModel but got {type(model)}"
+        m = await self.get_model(model_id, **kwargs)
+        assert m is None or isinstance(m, SpeechToTextModel), (
+            f"Expected SpeechToTextModel but got {type(m)}"
         )
-        return model
+        return m
 
     async def get_text_to_speech(self, **kwargs) -> Optional[TextToSpeechModel]:
-        """Get the default text-to-speech model"""
+        """Get the default text-to-speech model (YAML tier-aware)."""
+        model = await self._managed_model("text_to_speech", **kwargs)
+        if model is not None:
+            return model  # type: ignore[return-value]
         defaults = await self.get_defaults()
         model_id = defaults.default_text_to_speech_model
         if not model_id:
             return None
-        model = await self.get_model(model_id, **kwargs)
-        assert model is None or isinstance(model, TextToSpeechModel), (
-            f"Expected TextToSpeechModel but got {type(model)}"
+        m = await self.get_model(model_id, **kwargs)
+        assert m is None or isinstance(m, TextToSpeechModel), (
+            f"Expected TextToSpeechModel but got {type(m)}"
         )
-        return model
+        return m
 
     async def get_embedding_model(self, **kwargs) -> Optional[EmbeddingModel]:
-        """Get the default embedding model"""
+        """Get the default embedding model (YAML tier-aware)."""
+        model = await self._managed_model("embedding", **kwargs)
+        if model is not None:
+            return model  # type: ignore[return-value]
         defaults = await self.get_defaults()
         model_id = defaults.default_embedding_model
         if not model_id:
             return None
-        model = await self.get_model(model_id, **kwargs)
-        assert model is None or isinstance(model, EmbeddingModel), (
-            f"Expected EmbeddingModel but got {type(model)}"
+        m = await self.get_model(model_id, **kwargs)
+        assert m is None or isinstance(m, EmbeddingModel), (
+            f"Expected EmbeddingModel but got {type(m)}"
         )
-        return model
+        return m
+
+    async def _managed_model(
+        self, purpose: str, **kwargs
+    ) -> Optional[ModelType]:
+        """
+        Resolve a model from the YAML config for the current request's tier.
+
+        Returns None when managed mode is off or the tier has no config for
+        this purpose, so callers fall back to the database defaults.
+        """
+        provider = self._yaml_provider()
+        if not provider.is_available():
+            return None
+        from open_notebook.database.tenant_context import get_current_tier
+
+        tier = get_current_tier()
+        cfg = provider.get_model_config(purpose, tier=tier)
+        if cfg is None:
+            logger.warning(
+                f"No YAML config for purpose '{purpose}'"
+                f"{f' in tier {tier!r}' if tier else ''}; "
+                f"falling back to database defaults."
+            )
+            return None
+        return self._build_from_yaml_config(cfg, purpose, **kwargs)
 
     async def get_default_model(
         self, model_type: str, *, tier: Optional[str] = None, **kwargs
@@ -278,19 +312,26 @@ class ModelManager:
 
         Args:
             model_type: The type of model to retrieve (e.g., 'chat', 'embedding', etc.)
-            tier: Optional tier name (managed mode). If omitted, the yaml's
-                  default_tier is used.
+            tier: Optional tier name (managed mode). If omitted, falls back to
+                  the request's current tier (from the auth context), then to
+                  the yaml's default_tier.
             **kwargs: Additional arguments to pass to the model constructor
         """
         # --- Managed (YAML) mode takes priority when configured. ---
         provider = self._yaml_provider()
         if provider.is_available():
-            yaml_config = provider.get_model_config(model_type, tier=tier)
+            # Prefer the explicit tier, then the request-context tier.
+            effective_tier = tier
+            if effective_tier is None:
+                from open_notebook.database.tenant_context import get_current_tier
+
+                effective_tier = get_current_tier()
+            yaml_config = provider.get_model_config(model_type, tier=effective_tier)
             if yaml_config is not None:
                 return self._build_from_yaml_config(yaml_config, model_type, **kwargs)
             logger.warning(
                 f"No YAML model config for purpose '{model_type}'"
-                f"{f' in tier {tier!r}' if tier else ''}; "
+                f"{f' in tier {effective_tier!r}' if effective_tier else ''}; "
                 f"falling back to database defaults."
             )
 
