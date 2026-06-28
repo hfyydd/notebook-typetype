@@ -1,0 +1,9 @@
+-- Migration 17: multi-tenant user_id columns
+-- Adds an optional user_id column to tenant-owned tables for data isolation.
+-- Existing rows keep user_id = none, which the app treats as "shared / legacy"
+-- (visible to all users — see _tenant_where_clause in domain/base.py).
+--
+-- Note: SurrealDB's migration runner joins all lines into one query string,
+-- so each statement below is self-contained and separated by a semicolon.
+
+DEFINE FIELD IF NOT EXISTS user_id ON notebook TYPE option<string>; DEFINE FIELD IF NOT EXISTS user_id ON source TYPE option<string>; DEFINE FIELD IF NOT EXISTS user_id ON note TYPE option<string>; DEFINE FIELD IF NOT EXISTS user_id ON chat_session TYPE option<string>; DEFINE INDEX IF NOT EXISTS idx_notebook_user ON notebook FIELDS user_id; DEFINE INDEX IF NOT EXISTS idx_source_user ON source FIELDS user_id; DEFINE INDEX IF NOT EXISTS idx_note_user ON note FIELDS user_id; DEFINE INDEX IF NOT EXISTS idx_chat_session_user ON chat_session FIELDS user_id;

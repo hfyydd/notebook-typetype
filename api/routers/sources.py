@@ -213,17 +213,28 @@ async def get_sources(
                 },
             )
         else:
-            # Query all sources - include command field with FETCH
+            # Query all sources - include command field with FETCH.
+            # Scoped to the current tenant when present (multi-tenant mode).
+            from open_notebook.database.tenant_context import get_current_user_id
+
+            uid = get_current_user_id()
+            tenant_clause = (
+                "WHERE user_id = $user_id OR user_id IS NONE" if uid else ""
+            )
+            params: dict = {"limit": limit, "offset": offset}
+            if uid:
+                params["user_id"] = uid
             query = f"""
                 SELECT id, asset, created, title, updated, topics, command,
                 (SELECT VALUE count() FROM source_insight WHERE source = $parent.id GROUP ALL)[0].count OR 0 AS insights_count,
                 (SELECT VALUE id FROM source_embedding WHERE source = $parent.id LIMIT 1) != [] AS embedded
                 FROM source
+                {tenant_clause}
                 {order_clause}
                 LIMIT $limit START $offset
                 FETCH command
             """
-            result = await repo_query(query, {"limit": limit, "offset": offset})
+            result = await repo_query(query, params)
 
         # Convert result to response model
         # Command data is already fetched via FETCH command clause

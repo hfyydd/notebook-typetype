@@ -19,6 +19,7 @@ from open_notebook.database.repository import (
     repo_update,
     repo_upsert,
 )
+from open_notebook.database.tenant_context import get_current_user_id
 from open_notebook.exceptions import (
     DatabaseOperationError,
     InvalidInputError,
@@ -28,12 +29,41 @@ from open_notebook.exceptions import (
 T = TypeVar("T", bound="ObjectModel")
 
 
+def _tenant_params() -> Dict[str, Any]:
+    """Return query params for the current tenant, or {} if no tenant context."""
+    uid = get_current_user_id()
+    return {"user_id": uid} if uid else {}
+
+
+def _tenant_where_clause(model_cls: Type["ObjectModel"]) -> str:
+    """
+    Build a WHERE clause restricting rows to the current tenant.
+
+    - Not tenant-scoped table → no filter.
+    - No current user → no filter (single-user / legacy mode).
+    - Current user set → include rows owned by the user OR shared (user_id
+      is none/null), so users still see system/shared data.
+    """
+    if not getattr(model_cls, "tenant_scoped", True):
+        return ""
+    uid = get_current_user_id()
+    if not uid:
+        return ""
+    return "WHERE user_id = $user_id OR user_id IS NONE"
+
+
 class ObjectModel(BaseModel):
     id: Optional[str] = None
     table_name: ClassVar[str] = ""
     nullable_fields: ClassVar[set[str]] = set()  # Fields that can be saved as None
+    # Tables that own their data per tenant. Override to False on shared tables
+    # (e.g. system transformations, the User table itself).
+    tenant_scoped: ClassVar[bool] = True
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
+    # Tenant owner. Stamped on save() from the request context; used to filter
+    # on get_all(). None means "shared / legacy" data visible to everyone.
+    user_id: Optional[str] = None
 
     @classmethod
     async def get_all(cls: Type[T], order_by=None) -> List[T]:
@@ -80,12 +110,15 @@ class ObjectModel(BaseModel):
                             f"Invalid order_by clause: '{clause.strip()}'"
                         )
 
-                validated_order_by = ", ".join(validated_clauses)
-                query = f"SELECT * FROM {table_name} ORDER BY {validated_order_by}"
+                validated_order_by = ", ".join(validiated_clauses)
+                where_clause = _tenant_where_clause(cls)
+                query = f"SELECT * FROM {table_name} {where_clause} ORDER BY {validated_order_by}"
             else:
-                query = f"SELECT * FROM {table_name}"
+                where_clause = _tenant_where_clause(cls)
+                query = f"SELECT * FROM {table_name} {where_clause}"
 
-            result = await repo_query(query)
+            params = _tenant_params()
+            result = await repo_query(query, params) if params else await repo_query(query)
             objects = []
             for obj in result:
                 try:
@@ -194,6 +227,12 @@ class ObjectModel(BaseModel):
 
     def _prepare_save_data(self) -> Dict[str, Any]:
         data = self.model_dump()
+        # Stamp the current tenant on new records (id is None => insert).
+        # For updates we keep the existing user_id (already loaded on self).
+        if self.__class__.tenant_scoped and self.id is None:
+            ctx_user = get_current_user_id()
+            if ctx_user and not data.get("user_id"):
+                data["user_id"] = ctx_user
         return {
             key: value
             for key, value in data.items()

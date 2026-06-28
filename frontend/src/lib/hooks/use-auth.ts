@@ -10,46 +10,61 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     login,
+    register,
+    loginWithPassword,
     logout,
     checkAuth,
     checkAuthRequired,
     error,
     hasHydrated,
-    authRequired
+    authRequired,
+    authMode,
+    user,
   } = useAuthStore()
 
   useEffect(() => {
-    // Only check auth after the store has hydrated from localStorage
     if (hasHydrated) {
-      // First check if auth is required
       if (authRequired === null) {
         checkAuthRequired().then((required) => {
-          // If auth is required, check if we have valid credentials
           if (required) {
             checkAuth()
           }
         })
       } else if (authRequired) {
-        // Auth is required, check credentials
         checkAuth()
       }
-      // If authRequired === false, we're already authenticated (set in checkAuthRequired)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated, authRequired])
 
-  const handleLogin = async (password: string) => {
-    const success = await login(password)
-    if (success) {
-      // Check if there's a stored redirect path
-      const redirectPath = sessionStorage.getItem('redirectAfterLogin')
-      if (redirectPath) {
-        sessionStorage.removeItem('redirectAfterLogin')
-        router.push(redirectPath)
-      } else {
-        router.push('/notebooks')
-      }
+  const redirectAfterAuth = () => {
+    const redirectPath = sessionStorage.getItem('redirectAfterLogin')
+    if (redirectPath) {
+      sessionStorage.removeItem('redirectAfterLogin')
+      router.push(redirectPath)
+    } else {
+      router.push('/notebooks')
     }
+  }
+
+  // JWT (multi-tenant) login: email + password
+  const handleLogin = async (email: string, password: string) => {
+    const success = await login(email, password)
+    if (success) redirectAfterAuth()
+    return success
+  }
+
+  // JWT registration
+  const handleRegister = async (email: string, password: string, name?: string) => {
+    const success = await register(email, password, name)
+    if (success) redirectAfterAuth()
+    return success
+  }
+
+  // Legacy deployment-password login
+  const handlePasswordLogin = async (password: string) => {
+    const success = await loginWithPassword(password)
+    if (success) redirectAfterAuth()
     return success
   }
 
@@ -60,9 +75,13 @@ export function useAuth() {
 
   return {
     isAuthenticated,
-    isLoading: isLoading || !hasHydrated, // Treat lack of hydration as loading
+    isLoading: isLoading || !hasHydrated,
     error,
+    authMode,
+    user,
     login: handleLogin,
-    logout: handleLogout
+    register: handleRegister,
+    loginWithPassword: handlePasswordLogin,
+    logout: handleLogout,
   }
 }

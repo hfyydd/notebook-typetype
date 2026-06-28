@@ -9,6 +9,13 @@ from starlette.responses import JSONResponse
 from open_notebook.utils.encryption import get_secret_from_env
 
 
+def get_auth_mode() -> str:
+    """Return the configured auth mode: 'none' | 'password' | 'jwt'."""
+    import os
+
+    return os.environ.get("AUTH_MODE", "none").lower()
+
+
 class PasswordAuthMiddleware(BaseHTTPMiddleware):
     """
     Middleware to check password authentication for all API requests.
@@ -112,3 +119,102 @@ def check_api_password(
         )
 
     return True
+
+
+# ===========================================================================
+# JWT (multi-tenant cloud-service) mode
+# ===========================================================================
+
+# Paths that never require a JWT (login/register/health/docs/etc).
+JWT_PUBLIC_PATHS = {
+    "/",
+    "/health",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/api/auth/status",
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/config",
+}
+
+
+class JWTAuthMiddleware(BaseHTTPMiddleware):
+    """
+    Enforces a valid JWT Bearer token on every request in jwt auth mode.
+
+    On success, the decoded user is attached to request.state so downstream
+    code (and the get_current_user dependency) can read it without re-parsing.
+    """
+
+    def __init__(self, app, excluded_paths: Optional[list] = None):
+        super().__init__(app)
+        self.excluded_paths = excluded_paths or list(JWT_PUBLIC_PATHS)
+
+    async def dispatch(self, request: Request, call_next):
+        # Public paths and CORS preflight pass through.
+        if request.url.path in self.excluded_paths or request.method == "OPTIONS":
+            return await call_next(request)
+
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.lower().startswith("bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid Authorization header"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        token = auth_header.split(" ", 1)[1].strip()
+        from open_notebook.auth.service import decode_access_token
+
+        payload = decode_access_token(token)
+        if not payload:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or expired token"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Attach user context for downstream handlers + tenant filtering.
+        request.state.user_id = payload.get("sub")
+        request.state.user_email = payload.get("email")
+        return await call_next(request)
+
+
+async def get_current_user(request: Request) -> dict:
+    """
+    FastAPI dependency that yields the current user's JWT payload.
+
+    In jwt mode the middleware has already validated the token and attached
+    user_id to request.state. In other modes this returns a synthetic "anon"
+    user so routes keep working without changes in single-user deployments.
+    """
+    mode = get_auth_mode()
+    if mode == "jwt":
+        user_id = getattr(request.state, "user_id", None)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        return {
+            "id": user_id,
+            "email": getattr(request.state, "user_email", None),
+        }
+    # none / password mode: synthetic anonymous user (legacy single-tenant).
+    return {"id": None, "email": None}
+
+
+class TenantContextMiddleware(BaseHTTPMiddleware):
+    """
+    Propagate request.state.user_id into the tenant contextvar so that
+    ObjectModel.save()/get_all() filter by the current tenant automatically.
+
+    Runs after JWTAuthMiddleware. In non-jwt modes user_id is None and the
+    contextvar stays unset (no filtering) — preserving single-user behavior.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        from open_notebook.database.tenant_context import set_current_user_id
+
+        user_id = getattr(request.state, "user_id", None)
+        if user_id:
+            set_current_user_id(user_id)
+        return await call_next(request)

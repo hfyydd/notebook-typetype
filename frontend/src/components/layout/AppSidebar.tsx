@@ -87,7 +87,7 @@ export function AppSidebar() {
   const managedEnabled = managedMode?.enabled ?? false
   const navigation = getNavigation(t, managedEnabled)
   const pathname = usePathname()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const { isCollapsed, toggleCollapse } = useSidebarStore()
   const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
 
@@ -371,15 +371,22 @@ export function AppSidebar() {
                <TooltipContent side="right">{t('common.signOut')}</TooltipContent>
             </Tooltip>
           ) : (
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 sidebar-menu-item"
-              onClick={logout}
-              aria-label={t('common.signOut')}
-             >
-              <LogOut className="h-4 w-4" />
-              {t('common.signOut')}
-            </Button>
+            <div className="w-full space-y-2">
+              {user?.email && (
+                <div className="px-3 py-2 text-xs text-muted-foreground truncate border rounded-md bg-muted/30" title={user.email}>
+                  {user.email}
+                </div>
+              )}
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 sidebar-menu-item"
+                onClick={logout}
+                aria-label={t('common.signOut')}
+               >
+                <LogOut className="h-4 w-4" />
+                {t('common.signOut')}
+              </Button>
+            </div>
           )}
         </div>
       </div>
