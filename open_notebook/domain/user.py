@@ -33,6 +33,15 @@ class User(ObjectModel):
             return v.strip().lower()
         return v
 
+    @property
+    def is_admin(self) -> bool:
+        """Whether this user is a platform admin (env ADMIN_EMAILS, comma-separated)."""
+        import os
+
+        admin_emails = os.environ.get("ADMIN_EMAILS", "")
+        admin_set = {e.strip().lower() for e in admin_emails.split(",") if e.strip()}
+        return self.email in admin_set
+
     @classmethod
     async def get_by_email(cls, email: str) -> Optional["User"]:
         """Find a user by email. Returns None if not found."""
@@ -62,5 +71,6 @@ class User(ObjectModel):
             "email": self.email,
             "name": self.name,
             "tier": self.tier,
+            "is_admin": self.is_admin,
             "created": self.created.isoformat() if self.created else None,
         }
