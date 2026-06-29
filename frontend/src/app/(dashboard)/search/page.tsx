@@ -281,6 +281,7 @@ export default function SearchPage() {
                   strategy={ask.strategy}
                   answers={ask.answers}
                   finalAnswer={ask.finalAnswer}
+                  citations={ask.citations}
                 />
 
                 {/* Advanced Models Dialog */}

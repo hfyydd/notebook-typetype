@@ -46,6 +46,9 @@ class ThreadState(TypedDict):
     strategy: Strategy
     answers: Annotated[list, operator.add]
     final_answer: str
+    # Source metadata for cited chunks, collected during retrieval so the
+    # caller (API) can attach a human-readable reference list to the answer.
+    citations: Annotated[list, operator.add]
 
 
 async def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict:
@@ -98,15 +101,34 @@ async def trigger_queries(state: ThreadState, config: RunnableConfig):
 async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
     try:
         payload = state
-        # if state["type"] == "text":
-        #     results = text_search(state["term"], 10, True, True)
-        # else:
         results = await vector_search(state["term"], 10, True, True)
         if len(results) == 0:
             return {"answers": []}
         payload["results"] = results
         ids = [r["id"] for r in results]
         payload["ids"] = ids
+
+        # Collect human-readable citation metadata for each hit so the API
+        # layer can attach a reference list (title + snippet) to the answer.
+        # Dedup by id; cap the number to keep the list readable.
+        citation_meta = []
+        seen_ids = set()
+        for r in results[:8]:
+            rid = r.get("id")
+            if not rid or rid in seen_ids:
+                continue
+            seen_ids.add(rid)
+            matches = r.get("matches") or ""
+            snippet = str(matches)[:200]
+            citation_meta.append(
+                {
+                    "id": str(rid),
+                    "title": r.get("title") or str(rid),
+                    "parent_id": str(r.get("parent_id") or rid),
+                    "snippet": snippet,
+                }
+            )
+
         system_prompt = Prompter(prompt_template="ask/query_process").render(data=payload)  # type: ignore[arg-type]
         model = await provision_langchain_model(
             system_prompt,
@@ -116,7 +138,10 @@ async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
         )
         ai_message = await model.ainvoke(system_prompt)
         ai_content = extract_text_content(ai_message.content)
-        return {"answers": [clean_thinking_content(ai_content)]}
+        return {
+            "answers": [clean_thinking_content(ai_content)],
+            "citations": citation_meta,
+        }
     except OpenNotebookError:
         raise
     except Exception as e:

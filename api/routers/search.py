@@ -64,6 +64,9 @@ async def stream_ask_response(
     """Stream the ask response as Server-Sent Events."""
     try:
         final_answer = None
+        # Aggregate citation metadata across parallel retrieval nodes so the
+        # final "complete" event can attach a deduplicated reference list.
+        all_citations: list = []
 
         async for chunk in ask_graph.astream(
             input=dict(question=question),  # type: ignore[arg-type]
@@ -88,17 +91,34 @@ async def stream_ask_response(
                 yield f"data: {json.dumps(strategy_data)}\n\n"
 
             elif "provide_answer" in chunk:
-                for answer in chunk["provide_answer"]["answers"]:
+                node_data = chunk["provide_answer"]
+                for answer in node_data.get("answers", []):
                     answer_data = {"type": "answer", "content": answer}
                     yield f"data: {json.dumps(answer_data)}\n\n"
+                # Collect citation metadata for a human-readable reference list.
+                for cit in node_data.get("citations", []):
+                    all_citations.append(cit)
 
             elif "write_final_answer" in chunk:
                 final_answer = chunk["write_final_answer"]["final_answer"]
                 final_data = {"type": "final_answer", "content": final_answer}
                 yield f"data: {json.dumps(final_data)}\n\n"
 
-        # Send completion signal
-        completion_data = {"type": "complete", "final_answer": final_answer}
+        # Deduplicate citations by id while preserving order.
+        seen = set()
+        unique_citations = []
+        for c in all_citations:
+            cid = c.get("id")
+            if cid and cid not in seen:
+                seen.add(cid)
+                unique_citations.append(c)
+
+        # Send completion signal with the aggregated reference list.
+        completion_data = {
+            "type": "complete",
+            "final_answer": final_answer,
+            "citations": unique_citations,
+        }
         yield f"data: {json.dumps(completion_data)}\n\n"
 
     except Exception as e:

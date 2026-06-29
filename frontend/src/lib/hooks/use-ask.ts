@@ -18,11 +18,19 @@ interface StrategyData {
   searches: Array<{ term: string; instructions: string }>
 }
 
+export interface Citation {
+  id: string
+  title: string
+  parent_id: string
+  snippet: string
+}
+
 interface AskState {
   isStreaming: boolean
   strategy: StrategyData | null
   answers: string[]
   finalAnswer: string | null
+  citations: Citation[]
   error: string | null
 }
 
@@ -33,6 +41,7 @@ export function useAsk() {
     strategy: null,
     answers: [],
     finalAnswer: null,
+    citations: [],
     error: null
   })
 
@@ -54,6 +63,7 @@ export function useAsk() {
       strategy: null,
       answers: [],
       finalAnswer: null,
+      citations: [],
       error: null
     })
 
@@ -116,7 +126,8 @@ export function useAsk() {
               } else if (data.type === 'complete') {
                 setState(prev => ({
                   ...prev,
-                  isStreaming: false
+                  isStreaming: false,
+                  citations: data.citations || []
                 }))
               } else if (data.type === 'error') {
                 throw new Error(data.message || 'Stream error occurred')
@@ -159,6 +170,7 @@ export function useAsk() {
       strategy: null,
       answers: [],
       finalAnswer: null,
+      citations: [],
       error: null
     })
   }, [])

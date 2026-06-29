@@ -51,6 +51,13 @@ export interface StrategyData {
   }>
 }
 
+export interface AskCitation {
+  id: string
+  title: string
+  parent_id: string
+  snippet: string
+}
+
 export interface AskStreamEvent {
   type: 'strategy' | 'answer' | 'final_answer' | 'complete' | 'error'
   reasoning?: string
@@ -58,4 +65,5 @@ export interface AskStreamEvent {
   content?: string
   final_answer?: string
   message?: string
+  citations?: AskCitation[]
 }
