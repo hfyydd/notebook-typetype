@@ -20,18 +20,27 @@ interface StrategyData {
   searches: Array<{ term: string; instructions: string }>
 }
 
+interface CitationData {
+  id: string
+  title: string
+  parent_id: string
+  snippet: string
+}
+
 interface StreamingResponseProps {
   isStreaming: boolean
   strategy: StrategyData | null
   answers: string[]
   finalAnswer: string | null
+  citations?: CitationData[]
 }
 
 export function StreamingResponse({
   isStreaming,
   strategy,
   answers,
-  finalAnswer
+  finalAnswer,
+  citations
 }: StreamingResponseProps) {
   const [strategyOpen, setStrategyOpen] = useState(false)
   const [answersOpen, setAnswersOpen] = useState(false)
@@ -145,6 +154,37 @@ export function StreamingResponse({
               content={finalAnswer}
               onReferenceClick={handleReferenceClick}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Citation list: human-readable source titles + snippets */}
+      {citations && citations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              {t('common.references', { defaultValue: 'References' })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-0">
+            {citations.map((cit, i) => (
+              <button
+                key={cit.id}
+                type="button"
+                onClick={() => handleReferenceClick(cit.parent_id.split(':')[0] || 'source', cit.parent_id)}
+                className="block w-full text-left p-3 rounded-md bg-muted hover:bg-muted/70 transition-colors"
+              >
+                <div className="text-sm font-medium truncate">
+                  [{i + 1}] {cit.title}
+                </div>
+                {cit.snippet && (
+                  <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                    {cit.snippet}
+                  </div>
+                )}
+              </button>
+            ))}
           </CardContent>
         </Card>
       )}
